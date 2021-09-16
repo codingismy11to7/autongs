@@ -214,7 +214,7 @@ object AutoNGMain extends zio.App {
       workFiber: Option[Fiber.Runtime[Throwable, Unit]] = None,
   )
 
-  private def saveToLocalStorage(key: String, obj: js.Object) = for {
+  private def saveToLocalStorage(key: String)(obj: js.Object) = for {
     _ <- RT
     json = js.JSON.stringify(obj)
     _ <- RPure(dom.window.localStorage.setItem(key, json)).option
@@ -240,29 +240,29 @@ object AutoNGMain extends zio.App {
   } yield ref
 
   private def createControllerAndStart(stateRef: zio.Ref[ANGState]) = {
-    val startedZ                          = stateRef.map(_.workFiber.isDefined).get
-    val currOptsZ: RTask[RequiredOptions] = stateRef.map(_.options).get
-    val runStateZ                         = stateRef.map(_.runningState)
+    val startedZ  = stateRef.map(_.workFiber.isDefined).get
+    val currOptsZ = stateRef.map(_.options).get
+    val runStateZ = stateRef.map(_.runningState)
 
     val addStartListenerZ = (li: StartListener) =>
       stateRef.update(s => s.copy(startListeners = li :: s.startListeners)) *> (startedZ >>= (li(_)))
     val removeStartListenerZ = (li: StartListener) =>
       stateRef.update(s => s.copy(startListeners = s.startListeners.filterNot(_ == li)))
+    val fireStartListeners = stateRef.get >>= (st => ZPure.forEach(st.startListeners)(_(st.runningState.started)))
     val addOptionsListenerZ = (li: OptionsListener) =>
       stateRef.update(s => s.copy(optionListeners = li :: s.optionListeners)) *> (currOptsZ >>= (li(_)))
     val removeOptsListenerZ = (li: OptionsListener) =>
       stateRef.update(s => s.copy(optionListeners = s.optionListeners.filterNot(_ == li)))
+    val fireOptionListeners = stateRef.get >>= (st => ZPure.forEach(st.optionListeners)(_(st.options)).unit)
     val addNotifListenerZ = (li: NotifListener) => stateRef.update(s => s.copy(notifListeners = li :: s.notifListeners))
     val removeNotifListenerZ = (li: NotifListener) =>
       stateRef.update(s => s.copy(notifListeners = s.notifListeners.filterNot(_ == li)))
     val sendNotificationZ = (notif: String) =>
       stateRef.map(_.notifListeners).get >>= (lis => ZPure.forEach(lis)(_(notif)).unit)
 
-    val updateRunningState = (rs: RunningState) => saveToLocalStorage("autoNGsRunningState", rs)
+    val updateRunningState = runStateZ.get >>= saveToLocalStorage("autoNGsRunningState")
     val setStarted = (started: Boolean) =>
-      stateRef.update(s =>
-        s.copy(runningState = s.runningState.copy(started = started))
-      ) *> (runStateZ.get >>= updateRunningState)
+      stateRef.update(s => s.copy(runningState = s.runningState.copy(started = started))) *> updateRunningState
 
     val handleRetVal = (r: js.UndefOr[RetVal]) =>
       RTask(r.toOption.flatMap(_.lastScienceTime.toOption)) >>= {
@@ -270,11 +270,11 @@ object AutoNGMain extends zio.App {
         case Some(lst) => stateRef.update(_.copy(lastScienceTime = lst))
       }
 
-    lazy val scheduleNext: RTask[Unit] = stateRef.get >>= { state =>
-      ((doWork(state.options, state.lastScienceTime) >>= handleRetVal).uninterruptible *> scheduleNext)
-        .delay(state.options.taskInterval.millis)
-    }
-    val startWorking = scheduleNext.forkDaemon >>= { fiber => stateRef.update(_.copy(workFiber = Some(fiber))) }
+    lazy val work = (stateRef.get >>= { state =>
+      ZIO.sleep(state.options.taskInterval.millis) *>
+        (doWork(state.options, state.lastScienceTime) >>= handleRetVal).uninterruptible
+    }).forever
+    val startWorking = work.forkDaemon >>= (fiber => stateRef.update(_.copy(workFiber = Some(fiber))))
     val stopWorking = stateRef
       .modify(state => state.workFiber -> state.copy(workFiber = None))
       .flatMap(ZIO.fromOption(_))
@@ -282,12 +282,10 @@ object AutoNGMain extends zio.App {
       .optional
       .unit
 
-    val fireStartListeners  = stateRef.get >>= (st => ZPure.forEach(st.startListeners)(_(st.runningState.started)))
-    val doStart             = fireStartListeners *> startWorking
-    val startZ              = (setStarted(true) *> doStart).unlessM(startedZ)
-    val stopZ               = (setStarted(false) *> fireStartListeners *> stopWorking).whenM(startedZ)
-    val fireOptionListeners = stateRef.get >>= (st => ZPure.forEach(st.optionListeners)(_(st.options)).unit)
-    val saveOptions         = currOptsZ.map(_.toOptions) >>= (saveToLocalStorage("autoNGsOptions", _))
+    val doStart     = fireStartListeners *> startWorking
+    val startZ      = (setStarted(true) *> doStart).unlessM(startedZ)
+    val stopZ       = (setStarted(false) *> fireStartListeners *> stopWorking).whenM(startedZ)
+    val saveOptions = currOptsZ.map(_.toOptions) >>= saveToLocalStorage("autoNGsOptions")
 
     val reconfigureZ = (opts: js.UndefOr[Options]) =>
       stateRef.update(_.copy(options = Options.setDefaults(opts))) *> saveOptions *> fireOptionListeners
