@@ -2,10 +2,11 @@ package autong
 
 import autong.Buying.buildAllMachines
 import autong.Nav.navToPage
-import japgolly.scalajs.react.RTask
+import zio.clock.Clock
+import zio.{RIO, Task}
 
 object Science {
-  val buildAllScience: RTask[Unit] = buildAllMachines()
+  val buildAllScience: Task[Unit] = buildAllMachines()
 
-  val navAndBuildAllScience: RTask[Unit] = navToPage("Science") *> buildAllScience
+  val navAndBuildAllScience: RIO[Clock, Unit] = navToPage("Science") *> buildAllScience
 }

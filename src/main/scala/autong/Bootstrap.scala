@@ -3,7 +3,7 @@ package autong
 import autong.ui.AutoNGMenu
 import japgolly.scalajs.react._
 import org.scalajs.dom
-import zio.ZIO
+import zio.{RIO, ZIO}
 import zio.clock.Clock
 import zio.console.{putStrLn, Console}
 
@@ -37,7 +37,7 @@ object Bootstrap {
       }
     }
 
-    def scheduleLoad(delay: Duration): ZIO[Console with Clock, Throwable, Unit] =
+    def scheduleLoad(delay: Duration): RIO[Console with Clock, Unit] =
       ZIO.sleep(delay) *> scheduleLoad(max(delay.multipliedBy(2), Duration.ofSeconds(5))).unlessM(tryToLoad)
 
     handleGlobal *> scheduleLoad(Duration.ofMillis(10))

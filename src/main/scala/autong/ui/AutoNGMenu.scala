@@ -10,8 +10,6 @@ import scala.scalajs.js.Dynamic.{literal => lit}
 
 object AutoNGMenu {
 
-//  final private val theme = lit(palette = lit(primary = lit(main = "#00f500")))
-
   final private val theme = createTheme(
     ThemeOptions(
       palette = PaletteOptions(
