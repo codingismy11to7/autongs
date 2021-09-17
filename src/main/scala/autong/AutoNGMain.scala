@@ -21,14 +21,13 @@ import japgolly.scalajs.react._
 import org.scalajs.dom
 import zio.clock.instant
 import zio.duration.durationInt
-import zio.prelude.fx.ZPure
 import zio.{ExitCode, Fiber, URIO, ZIO, ZRef}
 
 import scala.scalajs.js
 
 object AutoNGMain extends zio.App {
 
-  private case class RetVal(lastScienceTime: js.UndefOr[Long] = js.undefined)
+  private case class RetVal(lastScienceTime: Option[Long] = None)
 
   private def currPageIs(name: String) = currentPageName.optional.map(_ contains name)
 
@@ -70,7 +69,7 @@ object AutoNGMain extends zio.App {
     })
 
   private def doWork(opts: RequiredOptions, lastScienceTime: Long) = {
-    val empty = RTask[js.UndefOr[RetVal]](js.undefined)
+    val empty = RTask(Option.empty[RetVal])
 
     val runAutoSciTechIfNeeded = (currPage: Option[String], elapsed: Long, currTime: Long) =>
       currPage.fold(empty) { currPage =>
@@ -80,10 +79,10 @@ object AutoNGMain extends zio.App {
             _ <- navAndBuildAllScience.when(opts.autoScienceEnabled)
             _ <- navAndBoostUnlockAllTechs.when(opts.autoTechsEnabled)
             _ <- navToPage(currPage)
-          } yield js.defined(RetVal(currTime))
+          } yield Some(RetVal(Some(currTime)))
       }
 
-    val runAutoScienceAndTech: RTask[js.UndefOr[RetVal]] =
+    val runAutoScienceAndTech: RTask[Option[RetVal]] =
       if (!(opts.autoScienceEnabled || opts.autoTechsEnabled)) empty
       else
         for {
@@ -121,8 +120,7 @@ object AutoNGMain extends zio.App {
                           swarm.flatMap(_.count).flatMap { swarmCount =>
                             if (swarmCount < opts.swarmCount) swarm >>= clickSwarm
                             else if (opts.autoBuySphere) sphere >>= buySphere
-                            else if (!spherePurchased) segment >>= click250
-                            else ZIO.unit
+                            else (segment >>= click250).unless(spherePurchased)
                           }
                       },
                     )
@@ -141,7 +139,7 @@ object AutoNGMain extends zio.App {
           buildAllMachines(BuildMachinesOpts(false)) *> runAutoScienceAndTech,
           empty,
         )
-        val doComms = (retVal: js.UndefOr[RetVal]) =>
+        val doComms = (retVal: Option[RetVal]) =>
           ZIO.ifM(RPure(opts.buyCommunications) && currPageIs("Communication"))(
             currentPageCards.flatMap { cards =>
               val buyBtn = (name: String) =>
@@ -212,7 +210,7 @@ object AutoNGMain extends zio.App {
       optionListeners: List[OptionsListener] = Nil,
       notifListeners: List[NotifListener] = Nil,
       lastScienceTime: Long = 0,
-      workFiber: Option[Fiber.Runtime[Throwable, Unit]] = None,
+      workFiberX: Option[Fiber.Runtime[Throwable, Unit]] = None,
   )
 
   private def saveToLocalStorage(key: String)(obj: js.Object) = for {
@@ -221,10 +219,10 @@ object AutoNGMain extends zio.App {
     _ <- RPure(dom.window.localStorage.setItem(key, json)).option
   } yield {}
 
-  private def localStorageObject[T](key: String) = for {
-    jsonOpt <- ZIO(Option(dom.window.localStorage.getItem(key))).orElseSucceed(None)
-    obj = jsonOpt.map(j => js.JSON.parse(j).asInstanceOf[T])
-  } yield obj
+  private def localStorageObject[T](key: String) = (for {
+    json <- ZIO.fromOption(Option(dom.window.localStorage.getItem(key)))
+    obj = js.JSON.parse(json).asInstanceOf[T]
+  } yield obj).optional
 
   private val savedRunningState = localStorageObject[RunningState]("autoNGsRunningState")
 
@@ -241,47 +239,69 @@ object AutoNGMain extends zio.App {
   } yield ref
 
   private def createControllerAndStart(stateRef: zio.Ref[ANGState]) = {
-    val startedZ  = stateRef.map(_.workFiber.isDefined).get
+    val workFiber = stateRef.foldAll(
+      identity,
+      identity,
+      identity,
+      (w: Option[Fiber.Runtime[Throwable, Unit]]) => s => Right(s.copy(workFiberX = w)),
+      s => Right(s.workFiberX),
+    )
+    val startedZ  = workFiber.map(_.isDefined).get
     val currOptsZ = stateRef.map(_.options).get
-    val runStateZ = stateRef.map(_.runningState)
+    val runStateZ = stateRef.foldAll(
+      identity,
+      identity,
+      identity,
+      (rs: RunningState) => st => Right(st.copy(runningState = rs)),
+      s => Right(s.runningState),
+    )
+    val startLists = stateRef.foldAll(
+      identity,
+      identity,
+      identity,
+      (li: List[StartListener]) => s => Right(s.copy(startListeners = li)),
+      s => Right(s.startListeners),
+    )
+    val optsLists = stateRef.foldAll(
+      identity,
+      identity,
+      identity,
+      (li: List[OptionsListener]) => s => Right(s.copy(optionListeners = li)),
+      s => Right(s.optionListeners),
+    )
+    val notifLists = stateRef.foldAll(
+      identity,
+      identity,
+      identity,
+      (li: List[NotifListener]) => s => Right(s.copy(notifListeners = li)),
+      s => Right(s.notifListeners),
+    )
 
-    val addStartListenerZ = (li: StartListener) =>
-      stateRef.update(s => s.copy(startListeners = li :: s.startListeners)) *> (startedZ >>= (li(_)))
-    val removeStartListenerZ = (li: StartListener) =>
-      stateRef.update(s => s.copy(startListeners = s.startListeners.filterNot(_ == li)))
-    val fireStartListeners = stateRef.get >>= (st => ZPure.forEach(st.startListeners)(_(st.runningState.started)))
-    val addOptionsListenerZ = (li: OptionsListener) =>
-      stateRef.update(s => s.copy(optionListeners = li :: s.optionListeners)) *> (currOptsZ >>= (li(_)))
-    val removeOptsListenerZ = (li: OptionsListener) =>
-      stateRef.update(s => s.copy(optionListeners = s.optionListeners.filterNot(_ == li)))
-    val fireOptionListeners = stateRef.get >>= (st => ZPure.forEach(st.optionListeners)(_(st.options)).unit)
-    val addNotifListenerZ = (li: NotifListener) => stateRef.update(s => s.copy(notifListeners = li :: s.notifListeners))
-    val removeNotifListenerZ = (li: NotifListener) =>
-      stateRef.update(s => s.copy(notifListeners = s.notifListeners.filterNot(_ == li)))
-    val sendNotificationZ = (notif: String) =>
-      stateRef.map(_.notifListeners).get >>= (lis => ZPure.forEach(lis)(_(notif)).unit)
+    val addStartListenerZ    = (li: StartListener) => startLists.update(li :: _) *> (startedZ >>= (li(_)))
+    val removeStartListenerZ = (li: StartListener) => startLists.update(_.filterNot(_ == li))
+    val fireStartListeners   = startedZ >>= (st => startLists.get >>= (ZIO.foreach_(_)(_(st))))
+    val addOptionsListenerZ  = (li: OptionsListener) => optsLists.update(li :: _) *> (currOptsZ >>= (li(_)))
+    val removeOptsListenerZ  = (li: OptionsListener) => optsLists.update(_.filterNot(_ == li))
+    val fireOptionListeners  = currOptsZ >>= (o => optsLists.get >>= (ZIO.foreach_(_)(_(o))))
+    val addNotifListenerZ    = (li: NotifListener) => notifLists.update(li :: _)
+    val removeNotifListenerZ = (li: NotifListener) => notifLists.update(_.filterNot(_ == li))
+    val sendNotificationZ    = (notif: String) => notifLists.get >>= (ZIO.foreach_(_)(_(notif)))
 
     val updateRunningState = runStateZ.get >>= saveToLocalStorage("autoNGsRunningState")
-    val setStarted = (started: Boolean) =>
-      stateRef.update(s => s.copy(runningState = s.runningState.copy(started = started))) *> updateRunningState
+    val setStarted         = (started: Boolean) => runStateZ.update(_.copy(started = started)) *> updateRunningState
 
-    val handleRetVal = (r: js.UndefOr[RetVal]) =>
-      RTask(r.toOption.flatMap(_.lastScienceTime.toOption)) >>= {
+    val handleRetVal = (r: Option[RetVal]) =>
+      ZIO.succeed(r.flatMap(_.lastScienceTime)) >>= {
         case None      => RT
         case Some(lst) => stateRef.update(_.copy(lastScienceTime = lst))
       }
 
     lazy val work = (stateRef.get >>= { state =>
-      ZIO.sleep(state.options.taskInterval.millis) *>
-        (doWork(state.options, state.lastScienceTime) >>= handleRetVal).uninterruptible
+      (doWork(state.options, state.lastScienceTime) >>= handleRetVal).uninterruptible
+        .delay(state.options.taskInterval.millis)
     }).forever
-    val startWorking = work.forkDaemon >>= (fiber => stateRef.update(_.copy(workFiber = Some(fiber))))
-    val stopWorking = stateRef
-      .modify(state => state.workFiber -> state.copy(workFiber = None))
-      .flatMap(ZIO.fromOption(_))
-      .flatMap(_.interrupt)
-      .optional
-      .unit
+    val startWorking = work.forkDaemon.map(Some(_)) >>= workFiber.set
+    val stopWorking  = workFiber.modify(wf => wf -> None).flatMap(ZIO.fromOption(_)).flatMap(_.interrupt).optional.unit
 
     val doStart     = fireStartListeners *> startWorking
     val startZ      = (setStarted(true) *> doStart).unlessM(startedZ)
