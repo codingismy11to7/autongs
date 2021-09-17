@@ -1,6 +1,6 @@
 package autong
 
-import autong.Selectors.{currentPageCardsWithBuyButtons, Card}
+import autong.Selectors.{currentPageCardsWithBuyButtons, BulkBuyButton, Card, ProductionRow}
 import zio.{Task, ZIO}
 
 object Buying {
@@ -42,5 +42,44 @@ object Buying {
 
         loop()
     }
+
+  private case class FreeBuyInfo(
+      name: String,
+      bbb: BulkBuyButton,
+      currentAmount: Int,
+      maxCanBuild: Int,
+  )
+
+  val buildFreeItems: Task[Unit] = {
+    // if any of them start with '-' instead of '+' then they aren't all free
+    def allFree(rows: Vector[ProductionRow]) = ZIO.foreach(rows)(_.inputOrOutput).map(_.forall(_ startsWith "+"))
+    def onlyAllowAllFree(rows: Vector[ProductionRow]) = allFree(rows).optional.map(_.filter(identity)).some
+
+    def canClickBuy(info: FreeBuyInfo) = info.bbb.buyAmount < (info.currentAmount + info.maxCanBuild)
+
+    currentPageCardsWithBuyButtons.optional.flatMap {
+      case None => ZIO.unit
+
+      case Some(cards) =>
+        val freeItems =
+          ZIO.collect(cards) { c =>
+            for {
+              n     <- c.name
+              bb    <- c.firstBulkBuyButton
+              curr  <- c.count
+              costs <- c.costs
+              max   <- costs.max
+              prod  <- c.production
+              prs   <- prod.productionRows
+              _     <- onlyAllowAllFree(prs)
+            } yield FreeBuyInfo(n, bb, curr, max)
+          }
+
+        for {
+          items <- freeItems
+          canClick = items.filter(canClickBuy)
+        } yield canClick.map(_.bbb.btn).foreach(_.click())
+    }
+  }
 
 }

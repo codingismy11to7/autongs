@@ -151,6 +151,15 @@ object OptionsDialog {
               currOptions.value.storageEnabled getOrElse savedOptions.storageEnabled,
               x => _.copy(storageEnabled = x),
             ),
+            MuiTooltip[RTask](title =
+              "Automatically purchase items that don't cost other resources over time, when it gets an achievement"
+            ).apply(
+              divSwitchCtrl(
+                """Buy "Free" Items""",
+                currOptions.value.buyFreeItems getOrElse savedOptions.buyFreeItems,
+                x => _.copy(buyFreeItems = x),
+              )
+            ),
             MuiDivider()(),
             divSwitchCtrl("Automatically buy Science", autoScienceEnabled, x => _.copy(autoScienceEnabled = x)),
             divSwitchCtrl(

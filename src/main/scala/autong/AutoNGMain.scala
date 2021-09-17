@@ -2,7 +2,7 @@ package autong
 
 import autong.AutoNG.{NotifListener, OptionsListener, StartListener}
 import autong.Bootstrap.bootstrapUi
-import autong.Buying.buildAllMachines
+import autong.Buying.{buildAllMachines, buildFreeItems}
 import autong.Nav.navToPage
 import autong.Science.{buildAllScience, navAndBuildAllScience}
 import autong.Selectors.{
@@ -135,6 +135,7 @@ object AutoNGMain extends zio.App {
         doDyson.optional *> doStorage *> runAutoScienceAndTech
       }, {
         val doEmc     = emcPage(opts.emcOnlyMeteorite).optional.when(opts.autoEmc && opts.emcAllPages)
+        val buyFree   = buildFreeItems.when(opts.buyFreeItems)
         val doScience = buildAllScience.whenM(currPageIs("Science") && RPure(opts.autoScienceEnabled))
         val doMilitary = ZIO.ifM(RPure(opts.buyMilitary) && currPageIs("Military"))(
           buildAllMachines(BuildMachinesOpts(false)) *> runAutoScienceAndTech,
@@ -157,7 +158,7 @@ object AutoNGMain extends zio.App {
             RPure(retVal),
           )
 
-        doStorage *> doEmc *> doScience *> (doMilitary >>= doComms)
+        doStorage *> doEmc *> buyFree *> doScience *> (doMilitary >>= doComms)
       },
     )
 

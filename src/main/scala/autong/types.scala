@@ -71,6 +71,7 @@ trait Options extends js.Object {
   def autoSciTechInterval: js.UndefOr[Int]            = js.undefined
   def buyCommunications: js.UndefOr[Boolean]          = js.undefined
   def buyMilitary: js.UndefOr[Boolean]                = js.undefined
+  def buyFreeItems: js.UndefOr[Boolean]               = js.undefined
 }
 
 object Options {
@@ -90,7 +91,8 @@ object Options {
     a.autoTechsEnabled === b.autoTechsEnabled &&
     a.autoSciTechInterval === b.autoSciTechInterval &&
     a.buyCommunications === b.buyCommunications &&
-    a.buyMilitary === b.buyMilitary
+    a.buyMilitary === b.buyMilitary &&
+    a.buyFreeItems == b.buyFreeItems
   }
 
   def apply(
@@ -109,6 +111,7 @@ object Options {
       autoSciTechInterval0: js.UndefOr[Int] = js.undefined,
       buyCommunications0: js.UndefOr[Boolean] = js.undefined,
       buyMilitary0: js.UndefOr[Boolean] = js.undefined,
+      buyFreeItems0: js.UndefOr[Boolean] = js.undefined,
   ): Options = new Options {
     override val ringCount: js.UndefOr[Int]                      = ringCount0
     override val swarmCount: js.UndefOr[Int]                     = swarmCount0
@@ -125,6 +128,7 @@ object Options {
     override val autoSciTechInterval: js.UndefOr[Int]            = autoSciTechInterval0
     override val buyCommunications: js.UndefOr[Boolean]          = buyCommunications0
     override val buyMilitary: js.UndefOr[Boolean]                = buyMilitary0
+    override val buyFreeItems: js.UndefOr[Boolean]               = buyFreeItems0
   }
 
   implicit class RichOptions(val o: Options) extends AnyVal {
@@ -145,6 +149,7 @@ object Options {
         autoSciTechInterval: js.UndefOr[Int] = o.autoSciTechInterval,
         buyCommunications: js.UndefOr[Boolean] = o.buyCommunications,
         buyMilitary: js.UndefOr[Boolean] = o.buyMilitary,
+        buyFreeItems: js.UndefOr[Boolean] = o.buyFreeItems,
     ): Options = Options(
       ringCount,
       swarmCount,
@@ -161,6 +166,7 @@ object Options {
       autoSciTechInterval,
       buyCommunications,
       buyMilitary,
+      buyFreeItems,
     )
 
   }
@@ -182,6 +188,7 @@ object Options {
       autoSciTechInterval = 60000,
       buyCommunications = false,
       buyMilitary = false,
+      buyFreeItems = true,
     )
 
   def setDefaults(opts: js.UndefOr[Options]): RequiredOptions =
@@ -202,6 +209,7 @@ object Options {
         o.autoSciTechInterval.getOrElse(default.autoSciTechInterval),
         o.buyCommunications.getOrElse(default.buyCommunications),
         o.buyMilitary.getOrElse(default.buyMilitary),
+        o.buyFreeItems.getOrElse(default.buyFreeItems),
       )
     )
 
@@ -228,6 +236,7 @@ case class RequiredOptions(
     autoSciTechInterval: Int,
     buyCommunications: Boolean,
     buyMilitary: Boolean,
+    buyFreeItems: Boolean,
 ) {
 
   def combineWith(n: Options): RequiredOptions = RequiredOptions(
@@ -246,6 +255,7 @@ case class RequiredOptions(
     n.autoSciTechInterval getOrElse autoSciTechInterval,
     n.buyCommunications getOrElse buyCommunications,
     n.buyMilitary getOrElse buyMilitary,
+    n.buyFreeItems getOrElse buyFreeItems,
   )
 
   def toOptions: Options = Options(
@@ -264,6 +274,7 @@ case class RequiredOptions(
     autoSciTechInterval,
     buyCommunications,
     buyMilitary,
+    buyFreeItems,
   )
 
   def toJson: String = js.JSON.stringify(toOptions)

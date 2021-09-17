@@ -102,17 +102,44 @@ object Selectors {
     val timeRemaining: ZIO[Any, Option[Throwable], String]  = queryTextContent("div:last-child > small > span", div)
   }
 
+  case class ProductionRow(div: html.Div) {
+
+    val rowName: ZIO[Any, Option[Throwable], String] =
+      queryTextContent("div:nth-child(1) > button > div.row > div:nth-child(2)", div)
+
+    val inputOrOutput: ZIO[Any, Option[Throwable], String] = queryTextContent("div.col-auto > small:nth-child(1)", div)
+  }
+
   case class Section(div: html.Div) {
-    val title: ZIO[Any, Option[Throwable], String] = queryTextContent("div.heading-6 > div.row > div.col-auto", div)
+
+    // if there's max or calculator or whatever, the text is nested, otherwise it's just in the top heading-6
+    val title: ZIO[Any, Option[Throwable], String] =
+      queryTextContent("div.heading-6 > div.row > div.col-auto", div) orElse queryTextContent("div.heading-6", div)
 
     val max: ZIO[Any, Option[Throwable], Int] =
       queryIntContent("div.heading-6 > div.row > div:last-child > span:nth-child(2)", div)
 
-    val costRows: ZIO[Any, Option[Throwable], Vector[CostRow]] =
+    private def getRows[Row](name: String, f: (html.Div) => Row) =
       title.optional.map { title =>
-        if (title contains "Costs") Some(div.children.toVector.tail.collect(isDiv).map(CostRow))
+        if (title contains name) Some(div.children.toVector.tail.collect(isDiv).map(f)).filter(_.nonEmpty)
         else None
       }.some
+
+    val costRows: ZIO[Any, Option[Throwable], Vector[CostRow]] = getRows("Costs", CostRow)
+
+    val productionRows: ZIO[Any, Option[Throwable], Vector[ProductionRow]] = getRows("Production", ProductionRow)
+  }
+
+  case class BulkBuyButton(btn: html.Button, buyAmount: Int)
+
+  object BulkBuyButton {
+
+    def opt(btn: html.Button): Option[BulkBuyButton] = Some(btn)
+      .flatMap(_.textContent.toOption)
+      .filter(_ startsWith "=")
+      .map(_.replaceFirst("=\\s*", ""))
+      .flatMap(_.toIntOption)
+      .map(BulkBuyButton(btn, _))
 
   }
 
@@ -143,6 +170,9 @@ object Selectors {
         .map(_.lastOption)
         .map(_.map(_.div.querySelectorAll("div.row > div > button").toVector.collect(isBtn)).filter(_.nonEmpty))
         .some
+
+    val firstBulkBuyButton: ZIO[Any, Option[Throwable], BulkBuyButton] =
+      buyButtons.optional.map(_.flatMap(_.headOption).flatMap(BulkBuyButton.opt)).some
 
   }
 
