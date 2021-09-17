@@ -13,7 +13,7 @@ object Nav {
     findSideNav(pageName).flatMap(_.navButton).map(_.btn).optional.flatMap {
       case Some(btn) =>
         def check(retryTime: Duration = 10.millis): RIO[Clock, Unit] =
-          (ZIO.sleep(retryTime) *> ZIO.yieldNow *> check(retryTime * 2))
+          (ZIO.yieldNow.delay(retryTime) *> check(retryTime * 2))
             .unlessM(currentPageName.optional.map(_ contains pageName))
 
         Task(btn.click()) *> check()

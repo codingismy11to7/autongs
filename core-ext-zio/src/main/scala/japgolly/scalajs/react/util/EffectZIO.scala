@@ -45,11 +45,14 @@ object EffectZIO {
     @inline override def flatMap[A, B](fa: RTask[A])(f: A => RTask[B]): RTask[B] = fa.flatMap(f)
 
     override def finallyRun[A, B](fa: RTask[A], runFinally: RTask[B]): RTask[A] =
-      fa.either.flatMap(ta =>
-        runFinally.either.flatMap(tb =>
-          ZIO.fromEither(if (ta.isRight && tb.isLeft) Left(tb.left.getOrElse(null)) else ta)
-        )
-      )
+      fa.either.flatMap { ta =>
+        runFinally.either.flatMap { tb =>
+          ZIO.fromEither(ta -> tb match {
+            case (Right(_), Left(b)) => Left(b)
+            case _                   => ta
+          })
+        }
+      }
 
     override def async[A](fa: Async.Untyped[A]): RTask[A] =
       ZIO.effectAsync(callback => fa(ta => () => callback(ZIO.fromTry(ta))))

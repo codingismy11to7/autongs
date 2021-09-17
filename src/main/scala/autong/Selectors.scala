@@ -34,13 +34,13 @@ object Selectors {
   }
 
   def queryTextContent(path: String, from: raw.NodeSelector = dom.document): ZIO[Any, Option[Throwable], String] =
-    ZIO(Option(from.querySelector(path)).flatMap(e => e.textContent.toOption)).some
+    ZIO.fromOption(Option(from.querySelector(path)).flatMap(e => e.textContent.toOption))
 
   def queryIntContent(path: String, from: raw.NodeSelector = dom.document): ZIO[Any, Option[Throwable], Int] =
-    ZIO(Option(from.querySelector(path)).flatMap(e => e.textContent.toOption).flatMap(_.toIntOption)).some
+    ZIO.fromOption(Option(from.querySelector(path)).flatMap(e => e.textContent.toOption).flatMap(_.toIntOption))
 
   def queryBtn(path: String, from: raw.NodeSelector = dom.document): ZIO[Any, Option[Throwable], html.Button] =
-    ZIO(Option(from.querySelector(path)).toBtn).some
+    ZIO.fromOption(Option(from.querySelector(path)).toBtn)
 
   private def queryBtns(path: String)(from: raw.NodeSelector = document) =
     ZIO(from.querySelectorAll(path).toVector.collect(isBtn))
@@ -49,7 +49,7 @@ object Selectors {
     val name: ZIO[Any, Option[Throwable], String] = queryTextContent("div.row > div:nth-child(2)", btn)
 
     val storageDiv: ZIO[Any, Option[Throwable], html.Div] =
-      ZIO(Option(btn.querySelector("div.row > div:last-child")).toDiv).some
+      ZIO.fromOption(Option(btn.querySelector("div.row > div:last-child")).toDiv)
 
     val amountStored: ZIO[Any, Option[Throwable], String] = storageDiv.flatMap(d => queryTextContent("span", d))
 
@@ -86,12 +86,12 @@ object Selectors {
   }
 
   val currentPage: ZIO[Any, Option[Throwable], Page] =
-    ZIO(Option(dom.document.querySelector("div.tab-pane.active")).toDiv.map(Page)).some
+    ZIO.fromOption(Option(dom.document.querySelector("div.tab-pane.active")).toDiv.map(Page))
 
   val currentPageName: ZIO[Any, Option[Throwable], String] = currentPage.flatMap(_.pageName)
 
   def pageContents(page: Page): ZIO[Any, Option[Throwable], raw.Element] =
-    ZIO(Option(page.div.querySelector("div.tab-pane.active > div > div:nth-child(2) > div.row.g-2"))).some
+    ZIO.fromOption(Option(page.div.querySelector("div.tab-pane.active > div > div:nth-child(2) > div.row.g-2")))
 
   case class CostRow(div: html.Div) {
 
@@ -195,7 +195,8 @@ object Selectors {
   ): ZIO[Any, Option[Throwable], (html.Button, html.Button, html.Button, html.Button)] =
     buyButtons(buttons.div).map(Some(_).filter(_.size == 4).map(b => (b(0), b(1), b(2), b(3)))).some
 
-  private def twoButtons(arr: Vector[html.Button]) = ZIO(Some(arr).filter(_.size == 2).map(b => b(0) -> b(1))).some
+  private def twoButtons(arr: Vector[html.Button]) =
+    ZIO.fromOption(Some(arr).filter(_.size == 2).map(b => b(0) -> b(1)))
 
   def ringBuyButtons(buttons: Vector[html.Button]): ZIO[Any, Option[Throwable], (html.Button, html.Button)] =
     twoButtons(buttons)

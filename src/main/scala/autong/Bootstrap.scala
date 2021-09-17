@@ -6,12 +6,11 @@ import org.scalajs.dom
 import zio.{RIO, ZIO}
 import zio.clock.Clock
 import zio.console.{putStrLn, Console}
+import zio.duration._
 
-import java.time.Duration
 import scala.scalajs.js
 
 object Bootstrap {
-  private def max(a: Duration, b: Duration) = if (a.compareTo(b) >= 0) a else b
 
   final private val mainId = "autongsButton"
 
@@ -38,9 +37,9 @@ object Bootstrap {
     }
 
     def scheduleLoad(delay: Duration): RIO[Console with Clock, Unit] =
-      ZIO.sleep(delay) *> scheduleLoad(max(delay.multipliedBy(2), Duration.ofSeconds(5))).unlessM(tryToLoad)
+      scheduleLoad((delay * 2).max(5.seconds)).unlessM(tryToLoad).delay(delay)
 
-    handleGlobal *> scheduleLoad(Duration.ofMillis(10))
+    handleGlobal *> scheduleLoad(10.millis)
   }
 
 }
