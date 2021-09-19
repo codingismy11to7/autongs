@@ -8,7 +8,7 @@ object Bundle {
   private def doBundle(files: Seq[Attributed[File]], targetDir: File, version: String) = {
     val manifest =
       s"""{
-         |  "name": "AutoNG[S]",
+         |  "name": "AutoNG",
          |  "manifest_version": 3,
          |  "host_permissions": [
          |    "https://ngspacecompany.exileng.com/"

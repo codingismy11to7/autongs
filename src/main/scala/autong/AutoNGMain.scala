@@ -133,7 +133,7 @@ object AutoNGMain extends zio.App {
         doDyson.optional *> doStorage *> runAutoScienceAndTech
       }, {
         val doEmc     = emcPage(opts.emcOnlyMeteorite).optional.when(opts.autoEmc && opts.emcAllPages)
-        val buyFree   = buildFreeItems.when(opts.buyFreeItems)
+        val buyFree   = buildFreeItems.when(opts.buyFreeItems).unlessM(currPageIs("Science"))
         val doScience = buildAllScience.whenM(currPageIs("Science") && RPure(opts.autoScienceEnabled))
         val doMilitary = ZIO.ifM(RPure(opts.buyMilitary) && currPageIs("Military"))(
           buildAllMachines(BuildMachinesOpts(false)) *> runAutoScienceAndTech,
