@@ -143,16 +143,19 @@ object AutoNGMain extends zio.App {
           ZIO.ifM(RPure(opts.buyCommunications) && currPageIs("Communication"))(
             currentPageCards.flatMap { cards =>
               val buyBtn = (name: String) =>
-                ZIOfind(cards)(c => c.name.map(_ == name))
-                  .flatMap(ZIO.fromOption(_))
-                  .flatMap(_.buyButtons)
-                  .map(_.lastOption)
+                (for {
+                  cOpt <- ZIOfind(cards)(c => c.name.map(_ == name))
+                  c    <- ZIO.fromOption(cOpt)
+                  bbs  <- c.buyButtons
+                  bb   <- ZIO.fromOption(bbs.lastOption)
+                } yield bb).optional
 
-              for {
+              (for {
                 ab  <- buyBtn("Astronomical Breakthrough")
                 irs <- buyBtn("Interstellar Radar Scanner")
-              } yield (ab orElse irs).foreach(_.click())
-            }.optional *> runAutoScienceAndTech,
+              } yield (ab orElse irs).foreach(_.click())).asSomeError
+            }.optional
+              *> runAutoScienceAndTech,
             RPure(retVal),
           )
 
@@ -169,7 +172,9 @@ object AutoNGMain extends zio.App {
           if (onlyMeteorite) card.costs.flatMap(_.costRows).flatMap(ZIO.filter(_)(r => r.rowName.map(_ == "Meteorite")))
           else card.costs.flatMap(_.costRows)
 
-        rows.flatMap(ZIO.foreach_(_)(row => row.emcButton.map(_.click())))
+        val emcButtons = rows.flatMap(ZIO.collect(_)(_.emcButton).asSomeError)
+
+        emcButtons.map(_.foreach(_.click()))
       }
     }
 
@@ -210,7 +215,7 @@ object AutoNGMain extends zio.App {
       optionListeners: List[OptionsListener] = Nil,
       notifListeners: List[NotifListener] = Nil,
       lastScienceTime: Long = 0,
-      workFiberX: Option[Fiber.Runtime[Throwable, Unit]] = None,
+      workFiber: Option[Fiber.Runtime[Throwable, Unit]] = None,
   )
 
   private def saveToLocalStorage(key: String)(obj: js.Object) = for {
@@ -243,8 +248,8 @@ object AutoNGMain extends zio.App {
       identity,
       identity,
       identity,
-      (w: Option[Fiber.Runtime[Throwable, Unit]]) => s => Right(s.copy(workFiberX = w)),
-      s => Right(s.workFiberX),
+      (w: Option[Fiber.Runtime[Throwable, Unit]]) => s => Right(s.copy(workFiber = w)),
+      s => Right(s.workFiber),
     )
     val startedZ  = workFiber.map(_.isDefined).get
     val currOptsZ = stateRef.map(_.options).get
@@ -303,9 +308,9 @@ object AutoNGMain extends zio.App {
     val startWorking = work.forkDaemon.map(Some(_)) >>= workFiber.set
     val stopWorking  = workFiber.modify(wf => wf -> None).flatMap(ZIO.fromOption(_)).flatMap(_.interrupt).optional.unit
 
-    val doStart     = fireStartListeners *> startWorking
+    val doStart     = startWorking *> fireStartListeners
     val startZ      = (setStarted(true) *> doStart).unlessM(startedZ)
-    val stopZ       = (setStarted(false) *> fireStartListeners *> stopWorking).whenM(startedZ)
+    val stopZ       = (setStarted(false) *> stopWorking *> fireStartListeners).whenM(startedZ)
     val saveOptions = currOptsZ.map(_.toOptions) >>= saveToLocalStorage("autoNGsOptions")
 
     val reconfigureZ = (opts: js.UndefOr[Options]) =>

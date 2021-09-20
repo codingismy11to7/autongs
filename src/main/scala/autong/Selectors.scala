@@ -153,8 +153,10 @@ object Selectors {
         .map(Section)
     )
 
+    // "completed" cards have their name nested differently
     val name: ZIO[Any, Option[Throwable], String] =
-      queryTextContent("div.card.card-body > div.row > div > div.row > div > div.row div > span.h6", div)
+      queryTextContent("div.card.card-body > div.row > div > div.row > div > div.row div > span.h6", div) orElse
+        queryTextContent("div.card.card-body > div.row > div.text-truncate > span.h6", div)
 
     val count: ZIO[Any, Option[Throwable], Int] =
       queryIntContent("div.card > div.row > div.col-12 > div.row > div.col-12 > div.row > div:nth-child(3) > span", div)

@@ -37,7 +37,7 @@ object Bootstrap {
     }
 
     def scheduleLoad(delay: Duration): RIO[Console with Clock, Unit] =
-      scheduleLoad((delay * 2).max(5.seconds)).unlessM(tryToLoad).delay(delay)
+      (ZIO.sleep(delay) *> scheduleLoad((delay * 2).max(5.seconds))).unlessM(tryToLoad)
 
     handleGlobal *> scheduleLoad(10.millis)
   }
