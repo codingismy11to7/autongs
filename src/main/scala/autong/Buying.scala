@@ -8,7 +8,7 @@ object Buying {
   private def buildAllFromCard(card: Card, numToLeaveUnbuilt: Int) = {
     val currMax = card.costs.flatMap(_.max).optional
 
-    card.buyButton("+ 1").optional.flatMap {
+    card.lastBuyButton.optional.flatMap {
       case None => ZIO.unit
 
       case Some(btn) =>

@@ -184,6 +184,8 @@ object Selectors {
     def buyButton(name: String): ZIO[Any, Option[Throwable], BuyButton] =
       buyButtons.optional.map(_.flatMap(_.find(_.name contains name))).some
 
+    val lastBuyButton: ZIO[Any, Option[Throwable], BuyButton] = buyButtons.map(_.last)
+
     val firstBulkBuyButton: ZIO[Any, Option[Throwable], BulkBuyButton] =
       buyButtons.optional.map(_.flatMap(_.headOption).flatMap(BulkBuyButton.opt)).some
 
