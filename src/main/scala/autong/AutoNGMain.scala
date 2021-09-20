@@ -5,23 +5,13 @@ import autong.Bootstrap.bootstrapUi
 import autong.Buying.{buildAllMachines, buildFreeItems}
 import autong.Nav.navToPage
 import autong.Science.{buildAllScience, navAndBuildAllScience}
-import autong.Selectors.{
-  currentPageCards,
-  currentPageName,
-  ringBuyButtons,
-  segmentBuyButtons,
-  segmentSections,
-  sideNavEntries,
-  swarmBuyButtons,
-  Card,
-  Section,
-}
+import autong.Selectors.{currentPageCards, currentPageName, sideNavEntries, Card, Section}
 import autong.Technologies.navAndBoostUnlockAllTechs
 import japgolly.scalajs.react._
 import org.scalajs.dom
 import zio.clock.instant
 import zio.duration.durationInt
-import zio.{ExitCode, Fiber, URIO, ZIO, ZRef}
+import zio._
 
 import scala.scalajs.js
 
@@ -31,19 +21,16 @@ object AutoNGMain extends zio.App {
 
   private def currPageIs(name: String) = currentPageName.optional.map(_ contains name)
 
-  private def click250(segment: Card) =
-    segmentSections(segment).flatMap { case (_, buttons) => segmentBuyButtons(buttons) }.map { case (_, _, eq250, _) =>
-      eq250.click()
-    }
+  private def clickBuy(name: String) = (card: Card) =>
+    for {
+      b <- card.buyButton(name)
+      _ <- b.click.asSomeError
+    } yield {}
 
-  private def buySphere(sphere: Card) =
-    sphere.buyButtons.optional.map(_.filter(_.size == 2).foreach(_.head.click())).asSomeError
-
-  private def clickRing(ring: Card) =
-    ring.buyButtons.flatMap(ringBuyButtons).map { case (eq50PlusRing, _) => eq50PlusRing.click() }
-
-  private def clickSwarm(swarm: Card) =
-    swarm.buyButtons.flatMap(swarmBuyButtons).map { case (eq100PlusSwarm, _) => eq100PlusSwarm.click() }
+  private val click250   = clickBuy("= 250")
+  private val buySphere  = clickBuy("= 250 + Sphere")
+  private val clickRing  = clickBuy("= 50 + Ring")
+  private val clickSwarm = clickBuy("= 100 + Swarm")
 
   private def clickEMC(onlyMeteorite: Boolean) = (costs: Section) => {
     val rows =
@@ -141,21 +128,25 @@ object AutoNGMain extends zio.App {
         )
         val doComms = (retVal: Option[RetVal]) =>
           ZIO.ifM(RPure(opts.buyCommunications) && currPageIs("Communication"))(
-            currentPageCards.flatMap { cards =>
-              val buyBtn = (name: String) =>
-                (for {
-                  cOpt <- ZIOfind(cards)(c => c.name.map(_ == name))
-                  c    <- ZIO.fromOption(cOpt)
-                  bbs  <- c.buyButtons
-                  bb   <- ZIO.fromOption(bbs.lastOption)
-                } yield bb).optional
+            currentPageCards.optional.flatMap {
+              case None => ZIO.unit
 
-              (for {
-                ab  <- buyBtn("Astronomical Breakthrough")
-                irs <- buyBtn("Interstellar Radar Scanner")
-              } yield (ab orElse irs).foreach(_.click())).asSomeError
-            }.optional
-              *> runAutoScienceAndTech,
+              case Some(cards) =>
+                val buyBtn = (name: String) =>
+                  (for {
+                    cOpt <- ZIOfind(cards)(c => c.name.map(_ == name))
+                    c    <- ZIO.fromOption(cOpt)
+                    bbs  <- c.buyButtons
+                    bb   <- ZIO.fromOption(bbs.lastOption)
+                  } yield bb).optional
+
+                for {
+                  ab  <- buyBtn("Astronomical Breakthrough")
+                  irs <- buyBtn("Interstellar Radar Scanner")
+                  b = ab orElse irs
+                  _ <- b.fold[Task[Unit]](ZIO.unit)(_.click)
+                } yield {}
+            } *> runAutoScienceAndTech,
             RPure(retVal),
           )
 

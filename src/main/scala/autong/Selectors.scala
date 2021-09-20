@@ -134,13 +134,18 @@ object Selectors {
 
   object BulkBuyButton {
 
-    def opt(btn: html.Button): Option[BulkBuyButton] = Some(btn)
-      .flatMap(_.textContent.toOption)
+    def opt(btn: BuyButton): Option[BulkBuyButton] = btn.name
       .filter(_ startsWith "=")
       .map(_.replaceFirst("=\\s*", ""))
       .flatMap(_.toIntOption)
-      .map(BulkBuyButton(btn, _))
+      .map(BulkBuyButton(btn.btn, _))
 
+  }
+
+  case class BuyButton(btn: html.Button) {
+    def name: Option[String] = btn.textContent.toOption
+
+    val click: Task[Unit] = ZIO(btn.click())
   }
 
   case class Card(div: html.Div) {
@@ -167,11 +172,17 @@ object Selectors {
     val costs: ZIO[Any, Option[Throwable], Section] =
       sections.flatMap(ZIOfind(_)(_.title.optional.map(_ contains "Costs"))).some
 
-    val buyButtons: ZIO[Any, Option[Throwable], Vector[html.Button]] =
+    val buyButtons: ZIO[Any, Option[Throwable], Vector[BuyButton]] =
       sections
         .map(_.lastOption)
-        .map(_.map(_.div.querySelectorAll("div.row > div > button").toVector.collect(isBtn)).filter(_.nonEmpty))
+        .map(
+          _.map(_.div.querySelectorAll("div.row > div > button").toVector.collect(isBtn).map(BuyButton))
+            .filter(_.nonEmpty)
+        )
         .some
+
+    def buyButton(name: String): ZIO[Any, Option[Throwable], BuyButton] =
+      buyButtons.optional.map(_.flatMap(_.find(_.name contains name))).some
 
     val firstBulkBuyButton: ZIO[Any, Option[Throwable], BulkBuyButton] =
       buyButtons.optional.map(_.flatMap(_.headOption).flatMap(BulkBuyButton.opt)).some
@@ -186,24 +197,5 @@ object Selectors {
 
   val currentPageCardsWithBuyButtons: ZIO[Any, Option[Throwable], Vector[Card]] =
     currentPageCards.flatMap(ZIO.filter(_)(_.buyButtons.optional.map(_.exists(_.nonEmpty)).asSomeError))
-
-  def segmentSections(segment: Card): ZIO[Any, Option[Throwable], (Section, Section)] =
-    segment.sections.map(Some(_).filter(_.size == 2).map(s => s(0) -> s(1))).some
-
-  private def buyButtons(btnRow: html.Div) = queryBtns("div.row > div.col-auto > button")(btnRow)
-
-  def segmentBuyButtons(
-      buttons: Section
-  ): ZIO[Any, Option[Throwable], (html.Button, html.Button, html.Button, html.Button)] =
-    buyButtons(buttons.div).map(Some(_).filter(_.size == 4).map(b => (b(0), b(1), b(2), b(3)))).some
-
-  private def twoButtons(arr: Vector[html.Button]) =
-    ZIO.fromOption(Some(arr).filter(_.size == 2).map(b => b(0) -> b(1)))
-
-  def ringBuyButtons(buttons: Vector[html.Button]): ZIO[Any, Option[Throwable], (html.Button, html.Button)] =
-    twoButtons(buttons)
-
-  def swarmBuyButtons(buttons: Vector[html.Button]): ZIO[Any, Option[Throwable], (html.Button, html.Button)] =
-    twoButtons(buttons)
 
 }

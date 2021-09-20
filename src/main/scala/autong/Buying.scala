@@ -8,12 +8,12 @@ object Buying {
   private def buildAllFromCard(card: Card, numToLeaveUnbuilt: Int) = {
     val currMax = card.costs.flatMap(_.max).optional
 
-    card.buyButtons.optional.flatMap {
+    card.buyButton("+ 1").optional.flatMap {
       case None => ZIO.unit
 
-      case Some(btns) =>
+      case Some(btn) =>
         def loop(max: Option[Int]): Task[Unit] =
-          (ZIO.unit.as(btns.lastOption.foreach(_.click())) *> ZIO.yieldNow *> (currMax >>= loop).when(max.isDefined))
+          (btn.click *> ZIO.yieldNow *> (currMax >>= loop).when(max.isDefined))
             .when(max.forall(_ > numToLeaveUnbuilt))
 
         currMax >>= loop
