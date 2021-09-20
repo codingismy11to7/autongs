@@ -78,7 +78,9 @@ object Buying {
         for {
           items <- freeItems
           canClick = items.filter(canClickBuy)
-        } yield canClick.map(_.bbb.btn).foreach(_.click())
+          btns     = canClick.map(_.bbb)
+          _ <- ZIO.foreach_(btns)(_.click)
+        } yield {}
     }
   }
 

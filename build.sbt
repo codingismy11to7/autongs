@@ -33,7 +33,7 @@ lazy val autongs = project
     scalaJSUseMainModuleInitializer := true,
     libraryDependencies ++= Seq(
 //      "com.github.japgolly.scalajs-react" %%% "core-bundle-cats_effect" % sjsReact,
-//      "com.github.japgolly.scalajs-react" %%% "core" % sjsReact
+//      "com.github.japgolly.scalajs-react" %%% "core" % sjsReact,
       "io.kinoplan" %%% "scalajs-react-material-ui-core" % "0.2.1+98-f4223ad2-SNAPSHOT"
     ),
     (Compile / npmDependencies) ++= Seq(

@@ -9,22 +9,6 @@ import zio.{Task, ZIO}
 
 object Selectors {
 
-  /*
-  case class Button(b: html.Button) {
-    def querySelector(p: String): Element             = b.querySelector(p)
-    def querySelectorAll(selectors: String): NodeList = b.querySelectorAll(selectors)
-
-    def classList = b.classList
-
-    def click() =
-      if (b.classList.contains("sidenav-item")) b.click()
-      else if (currentPageName.forall(_ == "Dyson"))
-        dom.console.warn("would click this!", b)
-      else b.click()
-
-  }
-   */
-
   private val isDiv: PartialFunction[raw.Node, html.Div]    = { case d: html.Div => d }
   private val isBtn: PartialFunction[raw.Node, html.Button] = { case b: html.Button => b }
 
@@ -33,17 +17,17 @@ object Selectors {
     def toBtn: Option[html.Button] = v.collect(isBtn)
   }
 
-  def queryTextContent(path: String, from: raw.NodeSelector = dom.document): ZIO[Any, Option[Throwable], String] =
+  private def queryTextContent(
+      path: String,
+      from: raw.NodeSelector = dom.document,
+  ): ZIO[Any, Option[Throwable], String] =
     ZIO.fromOption(Option(from.querySelector(path)).flatMap(e => e.textContent.toOption))
 
-  def queryIntContent(path: String, from: raw.NodeSelector = dom.document): ZIO[Any, Option[Throwable], Int] =
+  private def queryIntContent(path: String, from: raw.NodeSelector = dom.document): ZIO[Any, Option[Throwable], Int] =
     ZIO.fromOption(Option(from.querySelector(path)).flatMap(e => e.textContent.toOption).flatMap(_.toIntOption))
 
-  def queryBtn(path: String, from: raw.NodeSelector = dom.document): ZIO[Any, Option[Throwable], html.Button] =
+  private def queryBtn(path: String, from: raw.NodeSelector = dom.document): ZIO[Any, Option[Throwable], html.Button] =
     ZIO.fromOption(Option(from.querySelector(path)).toBtn)
-
-  private def queryBtns(path: String)(from: raw.NodeSelector = document) =
-    ZIO(from.querySelectorAll(path).toVector.collect(isBtn))
 
   case class SideNavButton(btn: html.Button) {
     val name: ZIO[Any, Option[Throwable], String] = queryTextContent("div.row > div:nth-child(2)", btn)
@@ -130,7 +114,9 @@ object Selectors {
     val productionRows: ZIO[Any, Option[Throwable], Vector[ProductionRow]] = getRows("Production", ProductionRow)
   }
 
-  case class BulkBuyButton(btn: html.Button, buyAmount: Int)
+  case class BulkBuyButton(btn: BuyButton, buyAmount: Int) {
+    val click: Task[Unit] = btn.click
+  }
 
   object BulkBuyButton {
 
@@ -138,14 +124,14 @@ object Selectors {
       .filter(_ startsWith "=")
       .map(_.replaceFirst("=\\s*", ""))
       .flatMap(_.toIntOption)
-      .map(BulkBuyButton(btn.btn, _))
+      .map(BulkBuyButton(btn, _))
 
   }
 
   case class BuyButton(btn: html.Button) {
     def name: Option[String] = btn.textContent.toOption
 
-    val click: Task[Unit] = ZIO(btn.click())
+    val click: Task[Unit] = Task(btn.click())
   }
 
   case class Card(div: html.Div) {

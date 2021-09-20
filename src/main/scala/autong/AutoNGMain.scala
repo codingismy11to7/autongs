@@ -6,12 +6,12 @@ import autong.Buying.{buildAllMachines, buildFreeItems}
 import autong.Nav.navToPage
 import autong.Science.{buildAllScience, navAndBuildAllScience}
 import autong.Selectors.{currentPageCards, currentPageName, sideNavEntries, Card, Section}
+import autong.Storage.{load, store}
 import autong.Technologies.navAndBoostUnlockAllTechs
 import japgolly.scalajs.react._
-import org.scalajs.dom
+import zio._
 import zio.clock.instant
 import zio.duration.durationInt
-import zio._
 
 import scala.scalajs.js
 
@@ -211,14 +211,12 @@ object AutoNGMain extends zio.App {
 
   private def saveToLocalStorage(key: String)(obj: js.Object) = for {
     _ <- RT
-    json = js.JSON.stringify(obj)
-    _ <- RPure(dom.window.localStorage.setItem(key, json)).option
+    _ <- store(key, obj)
   } yield {}
 
-  private def localStorageObject[T](key: String) = (for {
-    json <- ZIO.fromOption(Option(dom.window.localStorage.getItem(key)))
-    obj = js.JSON.parse(json).asInstanceOf[T]
-  } yield obj).optional
+  private def localStorageObject[T](key: String) = for {
+    objOpt <- load(key)
+  } yield objOpt.map(_.asInstanceOf[T])
 
   private val savedRunningState = localStorageObject[RunningState]("autoNGsRunningState")
 
@@ -333,7 +331,7 @@ object AutoNGMain extends zio.App {
   }
 
   private val program = for {
-    sr   <- stateRef
+    sr   <- stateRef.provideCustomLayer(Storage.live)
     cont <- createControllerAndStart(sr)
     ret  <- bootstrapUi(cont)
   } yield ret
