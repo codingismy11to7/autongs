@@ -51,7 +51,7 @@ object AutoNGMain extends zio.App {
       } yield s == t
 
       e.upgradeButton.optional
-        .flatMap(_.fold[Task[Unit]](Task.unit)(b ⇒ b.click.unlessM(b.disabled)))
+        .flatMap(_.fold[Task[Unit]](Task.unit)(b => b.click.unlessM(b.disabled)))
         .whenM(!RPure(onlyUpgradeWhenFull) || (stored.map(_.isDefined) && storedAndEqualSame))
     })
 
@@ -232,6 +232,15 @@ object AutoNGMain extends zio.App {
     ref  <- ZRef.make(ANGState(rs, Options setDefaults opts))
   } yield ref
 
+  implicit private class RichZIO[R, E, V](val z: ZIO[R, E, V]) extends AnyVal {
+
+    def psl[ROut <: Has[_]](
+        layer: URLayer[ZEnv, ROut]
+    )(implicit ev1: ZEnv with ROut <:< R, tagged: Tag[ROut]): ZIO[ZEnv, E, V] =
+      z.provideSomeLayer[ZEnv](layer)
+
+  }
+
   private def createControllerAndStart(stateRef: zio.Ref[ANGState]) = {
     val workFiber = stateRef.foldAll(
       identity,
@@ -292,6 +301,7 @@ object AutoNGMain extends zio.App {
 
     lazy val work = (stateRef.get >>= { state =>
       (doWork(state.options, state.lastScienceTime) >>= handleRetVal).uninterruptible
+        .catchAll(t => ZIO(t.printStackTrace()))
         .delay(state.options.taskInterval.millis)
     }).forever
     val startWorking = work.forkDaemon.map(Some(_)) >>= workFiber.set
@@ -311,30 +321,41 @@ object AutoNGMain extends zio.App {
     val startEmc     = (o: js.UndefOr[EMCOptions]) => doEmc(sendNotificationZ)(o).forkDaemon.unit
     val buyMachinesZ = (o: BuildMachinesOpts) => currOptsZ >>= (doBuyMachines(sendNotificationZ, _)(o).forkDaemon.unit)
 
-    doStart
-      .whenM(runStateZ.map(_.started).get)
-      .as(new AutoNG {
-        override def start: RTask[Unit]                                      = startZ
-        override def stop: RTask[Unit]                                       = stopZ
-        override def reconfigure(options: js.UndefOr[Options]): RTask[Unit]  = reconfigureZ(options)
-        override def setOptions(options: Options): RTask[Unit]               = setOptionsZ(options)
-        override def emc: (js.UndefOr[EMCOptions]) => RTask[Unit]            = o => startEmc(o)
-        override def buyMachines: (BuildMachinesOpts) => RTask[Unit]         = o => buyMachinesZ(o)
-        override def sendNotification(notif: String): RTask[Unit]            = sendNotificationZ(notif)
-        override def addStartListener(li: StartListener): RPure[Unit]        = addStartListenerZ(li).purify
-        override def removeStartListener(li: StartListener): RPure[Unit]     = removeStartListenerZ(li).purify
-        override def addOptionsListener(li: OptionsListener): RPure[Unit]    = addOptionsListenerZ(li).purify
-        override def removeOptionsListener(li: OptionsListener): RPure[Unit] = removeOptsListenerZ(li).purify
-        override def addNotifListener(li: NotifListener): RPure[Unit]        = addNotifListenerZ(li).purify
-        override def removeNotifListener(li: NotifListener): RPure[Unit]     = removeNotifListenerZ(li).purify
-      })
+    val createANG = for {
+      hasSt <- ZIO.environment[Has[Storage]]
+      hasUi <- ZIO.environment[Has[UIInterface]]
+      comb = ZLayer.succeedMany(hasSt ++ hasUi)
+      st   = ZLayer.succeedMany(hasSt)
+      ui   = ZLayer.succeedMany(hasUi)
+    } yield new AutoNG {
+      override def start: RTask[Unit]                                      = startZ.psl(comb)
+      override def stop: RTask[Unit]                                       = stopZ.psl(st)
+      override def reconfigure(options: js.UndefOr[Options]): RTask[Unit]  = reconfigureZ(options).psl(st)
+      override def setOptions(options: Options): RTask[Unit]               = setOptionsZ(options).psl(st)
+      override def emc: (js.UndefOr[EMCOptions]) => RTask[Unit]            = o => startEmc(o).psl(ui)
+      override def buyMachines: (BuildMachinesOpts) => RTask[Unit]         = o => buyMachinesZ(o).psl(ui)
+      override def sendNotification(notif: String): RTask[Unit]            = sendNotificationZ(notif)
+      override def addStartListener(li: StartListener): RPure[Unit]        = addStartListenerZ(li).purify
+      override def removeStartListener(li: StartListener): RPure[Unit]     = removeStartListenerZ(li).purify
+      override def addOptionsListener(li: OptionsListener): RPure[Unit]    = addOptionsListenerZ(li).purify
+      override def removeOptionsListener(li: OptionsListener): RPure[Unit] = removeOptsListenerZ(li).purify
+      override def addNotifListener(li: NotifListener): RPure[Unit]        = addNotifListenerZ(li).purify
+      override def removeNotifListener(li: NotifListener): RPure[Unit]     = removeNotifListenerZ(li).purify
+    }
+
+    for {
+      _   <- doStart.whenM(runStateZ.map(_.started).get)
+      ang <- createANG
+    } yield ang
   }
 
   private val program = for {
-    sr   <- stateRef.provideCustomLayer(Storage.live)
-    cont <- createControllerAndStart(sr).provideCustomLayer(UIInterface.live)
+    sr   <- stateRef
+    cont <- createControllerAndStart(sr)
     ret  <- bootstrapUi(cont)
   } yield ret
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = program.exitCode
+  private val layers = Storage.live ++ UIInterface.live
+
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = program.provideCustomLayer(layers).exitCode
 }

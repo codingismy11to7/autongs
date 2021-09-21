@@ -71,9 +71,9 @@ object UIInterface {
   trait Button {
     def name: Option[String]
 
-    val click: Task[Unit]
+    def click: Task[Unit]
 
-    val disabled: Task[Boolean]
+    def disabled: Task[Boolean]
   }
 
   trait Card {
@@ -83,21 +83,21 @@ object UIInterface {
 
     def count: ZIO[Any, Option[Throwable], Int]
 
-    final val production: ZIO[Any, Option[Throwable], Section] =
+    final lazy val production: ZIO[Any, Option[Throwable], Section] =
       sections.flatMap(ZIOfind(_)(_.title.optional.map(_ contains "Production"))).some
 
-    final val costs: ZIO[Any, Option[Throwable], Section] =
+    final lazy val costs: ZIO[Any, Option[Throwable], Section] =
       sections.flatMap(ZIOfind(_)(_.title.optional.map(_ contains "Costs"))).some
 
-    final val buyButtons: ZIO[Any, Option[Throwable], Vector[Button]] =
+    final lazy val buyButtons: ZIO[Any, Option[Throwable], Vector[Button]] =
       sections.map(_.lastOption).asSomeError.flatMap(ZIO.fromOption(_)).flatMap(_.buyButtons.some)
 
     final def buyButton(name: String): ZIO[Any, Option[Throwable], Button] =
       buyButtons.optional.map(_.flatMap(_.find(_.name contains name))).some
 
-    final val lastBuyButton: ZIO[Any, Option[Throwable], Button] = buyButtons.map(_.last)
+    final lazy val lastBuyButton: ZIO[Any, Option[Throwable], Button] = buyButtons.map(_.last)
 
-    final val firstBulkBuyButton: ZIO[Any, Option[Throwable], BulkBuyButton] =
+    final lazy val firstBulkBuyButton: ZIO[Any, Option[Throwable], BulkBuyButton] =
       buyButtons.optional.map(_.flatMap(_.headOption).flatMap(BulkBuyButton.opt)).some
 
   }

@@ -6,6 +6,8 @@ name := "autongs"
 
 (ThisBuild / scalafmtOnCompile) := true
 
+(ThisBuild / scalacOptions) ++= Seq("-deprecation")
+
 val sjsReact = "2.0.0-RC3"
 val react    = "17.0.2"
 //val react = "16.13.1"
