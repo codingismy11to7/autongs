@@ -1,9 +1,9 @@
 package autong
 
 import autong.Nav.navToPage
-import autong.Selectors.{currentPageCards, Card}
-import zio.{RIO, ZIO}
+import autong.UIInterface.{currentPageCards, Card}
 import zio.clock.Clock
+import zio.{Has, RIO, ZIO}
 
 object Technologies {
 
@@ -13,5 +13,7 @@ object Technologies {
   private val boostUnlockAllTechnologies =
     currentPageCards.flatMap(ZIO.foreach_(_)(c => boostUnlockFromCard(c).asSomeError)).optional
 
-  val navAndBoostUnlockAllTechs: RIO[Clock, Unit] = navToPage("Technologies") *> boostUnlockAllTechnologies.unit
+  val navAndBoostUnlockAllTechs: RIO[Has[UIInterface] with Clock, Unit] =
+    navToPage("Technologies") *> boostUnlockAllTechnologies.unit
+
 }

@@ -17,9 +17,6 @@ package object react extends japgolly.scalajs.react.internal.Core with japgolly.
   def RTask[T](t: => T): RTask[T] = ZIO(t)
   def RPure[T](t: => T): RPure[T] = ZPure.attempt(t)
 
-  def ZIOfind[R, E, A](as: Iterable[A])(f: (A) => ZIO[R, E, Boolean]): ZIO[R, E, Option[A]] =
-    ZIO.collectFirst(as)(a => f(a).map(passes => if (passes) Some(a) else None))
-
   implicit def eqUndefOr[T: Equal]: Equal[js.UndefOr[T]] = Equal.make { (a, b) =>
     import zio.prelude.EqualOps
     (js.isUndefined(a) && js.isUndefined(b)) || a.fold(false)(a => b.fold(false)(b => a === b))

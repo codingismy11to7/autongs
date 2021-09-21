@@ -1,7 +1,7 @@
 package autong.ui
 
-import autong.BuildMachinesOpts
-import autong.Selectors.currentPageCardsWithBuyButtons
+import autong.{BuildMachinesOpts, UIInterface}
+import autong.UIInterface.currentPageCardsWithBuyButtons
 import io.kinoplan.scalajs.react.material.ui.core._
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.component.ScalaFn.Unmounted
@@ -18,17 +18,19 @@ object BuyMachinesDialog {
   private def createMachineList(leaveUnbuilt: Boolean, machines: Vector[Machine]) =
     if (leaveUnbuilt) machines.filter(_.hasMax) else machines
 
-  private def collectCurrentMachines = currentPageCardsWithBuyButtons.optional.flatMap {
-    case None => RT.as(Vector.empty[Machine])
+  private val collectCurrentMachines = currentPageCardsWithBuyButtons.optional
+    .flatMap {
+      case None => RT.as(Vector.empty[Machine])
 
-    case Some(cards) =>
-      ZIO.collect(cards) { card =>
-        for {
-          maxOpt <- card.costs.flatMap(_.max).optional.asSomeError
-          name   <- card.name.optional.map(_.filterNot(_ == "Upgrade Storage")).some
-        } yield Machine(name, maxOpt.isDefined)
-      }
-  }
+      case Some(cards) =>
+        ZIO.collect(cards) { card =>
+          for {
+            maxOpt <- card.maxCanBuild.optional.asSomeError
+            name   <- card.name.optional.map(_.filterNot(_ == "Upgrade Storage")).some
+          } yield Machine(name, maxOpt.isDefined)
+        }
+    }
+    .provideCustomLayer(UIInterface.live)
 
   final val Component = ScalaFnComponent
     .withHooks[Props]
@@ -36,7 +38,7 @@ object BuyMachinesDialog {
     .useState(true)
     .useState(Set.empty[String])
     .useEffectOnMountBy((_, machinesState, _, limitTo) =>
-      collectCurrentMachines.purify.flatMap { machines =>
+      collectCurrentMachines.flatMap { machines =>
         machinesState.setState(machines) *> limitTo.setState(
           createMachineList(leaveUnbuilt = true, machines).map(_.name).toSet
         )
