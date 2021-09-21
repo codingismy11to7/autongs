@@ -1,7 +1,7 @@
 package autong
 
 import autong.AutoNGMain.doWork
-import autong.TestUIInterface.{createPage, TestButton, TestSideNavButton, TestSideNavEntry}
+import autong.TestUIInterface.{createPage, TestClickCountButton, TestSideNavButton, TestSideNavEntry}
 import zio.test.Assertion._
 import zio.test._
 
@@ -9,10 +9,10 @@ object TestAutoStorage extends DefaultRunnableSpec {
 
   private def runWithOpts(opts: Options) =
     for {
-      oilUpgrade   <- TestButton.make()
-      metalUpgrade <- TestButton.make(disabled = true)
-      gemUpgrade   <- TestButton.make()
-      woodUpgrade  <- TestButton.make(disabled = true)
+      oilUpgrade   <- TestClickCountButton.make()
+      metalUpgrade <- TestClickCountButton.make(disabled = true)
+      gemUpgrade   <- TestClickCountButton.make()
+      woodUpgrade  <- TestClickCountButton.make(disabled = true)
       rescsEntry = TestSideNavEntry(TestSideNavButton("Earth Resources"))
       oilEntry   = TestSideNavEntry(TestSideNavButton("Oil", "1M", "1M"), oilUpgrade)
       metalEntry = TestSideNavEntry(TestSideNavButton("Metal", "1M", "1M"), metalUpgrade)
