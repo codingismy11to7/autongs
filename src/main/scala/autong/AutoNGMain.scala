@@ -40,20 +40,17 @@ object AutoNGMain extends zio.App {
   }
 
   private def upgradeStorage(onlyUpgradeWhenFull: Boolean) =
-    sideNavEntries.flatMap(ZIO.foreach_(_) { e =>
-      val nb     = e.navButton
-      val stored = nb.flatMap(_.amountStored).optional
-      val total  = nb.flatMap(_.totalStorage).optional
+    sideNavEntries.flatMap { es =>
+      val btnsToClick = ZIO.collect(es) { e =>
+        val storedAndTotal = e.navButton.flatMap(n => n.amountStored &&& n.totalStorage)
+        val storedAndEqualSame = for {
+          st <- storedAndTotal
+        } yield st._1 == st._2
 
-      val storedAndEqualSame = for {
-        s <- stored
-        t <- total
-      } yield s == t
-
-      e.upgradeButton.optional
-        .flatMap(_.fold[Task[Unit]](Task.unit)(b => b.click.unlessM(b.disabled)))
-        .whenM(!RPure(onlyUpgradeWhenFull) || (stored.map(_.isDefined) && storedAndEqualSame))
-    })
+        ZIO.ifM(!ZIO.fromOption(Some(onlyUpgradeWhenFull)) || storedAndEqualSame)(e.upgradeButton, ZIO.fail(None))
+      }
+      btnsToClick >>= (ZIO.foreach_(_)(b => b.click.unlessM(b.disabled)))
+    }
 
   private[autong] def doWork(opts: RequiredOptions, lastScienceTime: Long) = {
     val empty = RTask(Option.empty[RetVal])
