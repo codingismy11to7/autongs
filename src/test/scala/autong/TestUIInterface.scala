@@ -5,6 +5,7 @@ import autong.Utils.RichStr
 import zio._
 
 import scala.scalajs.js
+import scala.scalajs.js.JSConverters.JSRichOption
 
 object TestUIInterface {
 
@@ -14,6 +15,18 @@ object TestUIInterface {
 
       override def sideNavEntries: Task[Vector[SideNavEntry]] = ZIO.succeed(sideNavs)
     }
+  }
+
+  implicit class RichCard(val card: Card) extends AnyVal {
+
+    def toDynCard: IO[Option[Throwable], DynCard] = for {
+      n  <- card.name
+      c  <- card.count
+      m  <- card.costs.flatMap(_.max)
+      cr <- card.costs.flatMap(_.costRows).optional.asSomeError
+      pr <- card.production.flatMap(_.productionRows).optional.asSomeError
+    } yield DynCard(n, c, m, cr.orUndefined, pr.orUndefined)
+
   }
 
   case class TestClickCountButton(clickCount: Ref[Int], name: Option[String] = None, _disabled: Boolean = false)

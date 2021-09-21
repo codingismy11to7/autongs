@@ -2,7 +2,6 @@ package autong
 
 import autong.Buying.buildAllMachines
 import autong.TestUIInterface._
-import autong.UIInterface.Card
 import zio.ZIO
 import zio.test.Assertion._
 import zio.test._
@@ -28,13 +27,6 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
     m4Count <- m4Build.clicks
   } yield (m1Count, m2Count, m3Count, m4Count)
 
-  private def toDynCard(card: Card) = for {
-    n     <- card.name
-    c     <- card.count
-    costs <- card.costs
-    m     <- costs.max
-  } yield DynCard(n, c, m)
-
   private def max(opts: BuildMachinesOpts) = for {
     page <- createDynamicPage(
       "Titanium",
@@ -49,7 +41,7 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
     layer = TestUIInterface.create(page)
     _     <- buildAllMachines(opts).provideCustomLayer(layer)
     cards <- page.cards.optional.map(_.getOrElse(Vector.empty))
-    dcs   <- ZIO.collect(cards)(toDynCard)
+    dcs   <- ZIO.collect(cards)(_.toDynCard)
   } yield dcs
 
   final val spec = suite("Build All Machines")(
