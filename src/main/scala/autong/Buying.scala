@@ -1,7 +1,7 @@
 package autong
 
-import autong.Selectors.{currentPageCardsWithBuyButtons, BulkBuyButton, Card, ProductionRow}
-import zio.{Task, ZIO}
+import autong.UIInterface.{currentPageCardsWithBuyButtons, BulkBuyButton, Card, ProductionRow}
+import zio.{Has, RIO, Task, ZIO}
 
 object Buying {
 
@@ -21,7 +21,7 @@ object Buying {
 
   }
 
-  def buildAllMachines(o: BuildMachinesOpts = BuildMachinesOpts(true)): Task[Unit] =
+  def buildAllMachines(o: BuildMachinesOpts = BuildMachinesOpts(true)): RIO[Has[UIInterface], Unit] =
     currentPageCardsWithBuyButtons.optional.flatMap {
       case None => ZIO.unit
 
@@ -50,7 +50,7 @@ object Buying {
       maxCanBuild: Int,
   )
 
-  val buildFreeItems: Task[Unit] = {
+  val buildFreeItems: RIO[Has[UIInterface], Unit] = {
     // if any of them start with '-' instead of '+' then they aren't all free
     def allFree(rows: Vector[ProductionRow]) = ZIO.foreach(rows)(_.inputOrOutput).map(_.forall(_ startsWith "+"))
     def onlyAllowAllFree(rows: Vector[ProductionRow]) = allFree(rows).optional.map(_.filter(identity)).some

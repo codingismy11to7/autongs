@@ -5,9 +5,9 @@ import autong.Bootstrap.bootstrapUi
 import autong.Buying.{buildAllMachines, buildFreeItems}
 import autong.Nav.navToPage
 import autong.Science.{buildAllScience, navAndBuildAllScience}
-import autong.Selectors.{currentPageCards, currentPageName, sideNavEntries, Card, Section}
 import autong.Storage.{load, store}
 import autong.Technologies.navAndBoostUnlockAllTechs
+import autong.UIInterface._
 import japgolly.scalajs.react._
 import zio._
 import zio.clock.instant
@@ -36,7 +36,7 @@ object AutoNGMain extends zio.App {
     val rows =
       if (onlyMeteorite) costs.costRows.flatMap(ZIO.filter(_)(_.rowName.map(_ == "Meteorite"))) else costs.costRows
 
-    rows.flatMap(ZIO.foreach_(_)(_.emcButton.map(_.click()).optional.asSomeError))
+    rows.flatMap(ZIO.foreach_(_)(_.emcButton.flatMap(_.click.asSomeError).optional.asSomeError))
   }
 
   private def upgradeStorage(onlyUpgradeWhenFull: Boolean) =
@@ -51,7 +51,7 @@ object AutoNGMain extends zio.App {
       } yield s == t
 
       e.upgradeButton.optional
-        .map(_.foreach(b => if (!b.classList.contains("disabled")) b.click()))
+        .flatMap(_.fold[Task[Unit]](Task.unit)(b ⇒ b.click.unlessM(b.disabled)))
         .whenM(!RPure(onlyUpgradeWhenFull) || (stored.map(_.isDefined) && storedAndEqualSame))
     })
 
@@ -165,7 +165,7 @@ object AutoNGMain extends zio.App {
 
         val emcButtons = rows.flatMap(ZIO.collect(_)(_.emcButton).asSomeError)
 
-        emcButtons.map(_.foreach(_.click()))
+        emcButtons.flatMap(ZIO.foreach_(_)(_.click.asSomeError))
       }
     }
 
@@ -318,8 +318,8 @@ object AutoNGMain extends zio.App {
         override def stop: RTask[Unit]                                       = stopZ
         override def reconfigure(options: js.UndefOr[Options]): RTask[Unit]  = reconfigureZ(options)
         override def setOptions(options: Options): RTask[Unit]               = setOptionsZ(options)
-        override def emc: (js.UndefOr[EMCOptions]) => RTask[Unit]            = startEmc
-        override def buyMachines: (BuildMachinesOpts) => RTask[Unit]         = buyMachinesZ
+        override def emc: (js.UndefOr[EMCOptions]) => RTask[Unit]            = o => startEmc(o)
+        override def buyMachines: (BuildMachinesOpts) => RTask[Unit]         = o => buyMachinesZ(o)
         override def sendNotification(notif: String): RTask[Unit]            = sendNotificationZ(notif)
         override def addStartListener(li: StartListener): RPure[Unit]        = addStartListenerZ(li).purify
         override def removeStartListener(li: StartListener): RPure[Unit]     = removeStartListenerZ(li).purify
@@ -332,7 +332,7 @@ object AutoNGMain extends zio.App {
 
   private val program = for {
     sr   <- stateRef.provideCustomLayer(Storage.live)
-    cont <- createControllerAndStart(sr)
+    cont <- createControllerAndStart(sr).provideCustomLayer(UIInterface.live)
     ret  <- bootstrapUi(cont)
   } yield ret
 
