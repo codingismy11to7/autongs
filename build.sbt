@@ -12,8 +12,9 @@ val sjsReact = "2.0.0-RC3"
 val react    = "17.0.2"
 //val react = "16.13.1"
 val mui = "4.12.3"
-
 //val mui = "3.9.0"
+
+val zioVersion = "1.0.11"
 
 lazy val `core-ext-zio` = project
   .settings(
@@ -38,6 +39,11 @@ lazy val autongs = project
 //      "com.github.japgolly.scalajs-react" %%% "core" % sjsReact,
       "io.kinoplan" %%% "scalajs-react-material-ui-core" % "0.2.1+98-f4223ad2-SNAPSHOT"
     ),
+    libraryDependencies ++= Seq(
+      "dev.zio" %%% "zio-test"     % zioVersion,
+      "dev.zio" %%% "zio-test-sbt" % zioVersion,
+    ).map(_ % Test),
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     (Compile / npmDependencies) ++= Seq(
       "@material-ui/core" -> mui,
       "react"             -> react,

@@ -17,7 +17,7 @@ import scala.scalajs.js
 
 object AutoNGMain extends zio.App {
 
-  private case class RetVal(lastScienceTime: Option[Long] = None)
+  private[autong] case class RetVal(lastScienceTime: Option[Long] = None)
 
   private def currPageIs(name: String) = currentPageName.optional.map(_ contains name)
 
@@ -55,7 +55,7 @@ object AutoNGMain extends zio.App {
         .whenM(!RPure(onlyUpgradeWhenFull) || (stored.map(_.isDefined) && storedAndEqualSame))
     })
 
-  private def doWork(opts: RequiredOptions, lastScienceTime: Long) = {
+  private[autong] def doWork(opts: RequiredOptions, lastScienceTime: Long) = {
     val empty = RTask(Option.empty[RetVal])
 
     val runAutoSciTechIfNeeded = (currPage: Option[String], elapsed: Long, currTime: Long) =>
