@@ -1,6 +1,6 @@
 package autong
 
-import autong.Buying.buildAllMachines
+import autong.Buying.{buildAllMachines, buildFreeItems}
 import autong.TestUIInterface._
 import zio.ZIO
 import zio.test.Assertion._
@@ -43,6 +43,35 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
     cards <- page.cards.optional.map(_.getOrElse(Vector.empty))
     dcs   <- ZIO.collect(cards)(_.toDynCard)
   } yield dcs
+
+  private val buyFreeItemCards = Vector(
+    DynCard("Free1", 3, 2),
+    DynCard("Free2", 3, 3),
+    DynCard("Free3", 175, 100),
+    DynCard("Free4", 24, 80),
+    DynCard("NonFree", 1, 100, productionRows = Vector(TestProdRow("Energy", "-1"))),
+  ).map(c => c.copy(productionRows = TestProdRow("Resource", "+10") +: c.productionRows.getOrElse(Vector.empty)))
+
+  private def testBuildFree(runTwice: Boolean = false) = for {
+    gain20  <- TestClickCountButton.make("Gain 20")
+    upgrade <- TestClickCountButton.make("Upgrade")
+    page <- createDynamicPage(
+      "Resource",
+      Vector(
+        TestCard("Overview", _sections = Vector(TestSection(_buyButtons = Vector(gain20)))),
+        TestCard("Upgrade Storage", 20, _sections = Vector(TestSection(_buyButtons = Vector(upgrade)))),
+      ),
+      buyFreeItemCards,
+    )
+    layer = TestUIInterface.create(page)
+    run   = buildFreeItems.provideCustomLayer(layer)
+    _             <- run
+    _             <- run.when(runTwice)
+    cards         <- page.cards.optional.map(_.getOrElse(Vector.empty))
+    dcs           <- ZIO.collect(cards)(_.toDynCard)
+    gain20Clicks  <- gain20.clicks
+    upgradeClicks <- upgrade.clicks
+  } yield (gain20Clicks, upgradeClicks, dcs)
 
   final val spec = suite("Build All Machines")(
     suite("should work without max on machines")(
@@ -114,6 +143,30 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
             )
           )
         )
+      },
+    ),
+    suite("buy free items")(
+      testM("should work") {
+        testBuildFree().map { case (gain20Clicks, upgradeClicks, dcs) =>
+          assert(gain20Clicks)(equalTo(0)) &&
+            assert(upgradeClicks)(equalTo(0)) &&
+            assert(dcs(0))(equalTo(buyFreeItemCards(0))) &&
+            assert(dcs(1))(equalTo(buyFreeItemCards(1).copy(count = 5, max = 1))) &&
+            assert(dcs(2))(equalTo(buyFreeItemCards(2).copy(count = 250, max = 25))) &&
+            assert(dcs(3))(equalTo(buyFreeItemCards(3).copy(count = 25, max = 79))) &&
+            assert(dcs(4))(equalTo(buyFreeItemCards(4)))
+        }
+      },
+      testM("should work when run again") {
+        testBuildFree(true).map { case (gain20Clicks, upgradeClicks, dcs) =>
+          assert(gain20Clicks)(equalTo(0)) &&
+            assert(upgradeClicks)(equalTo(0)) &&
+            assert(dcs(0))(equalTo(buyFreeItemCards(0))) &&
+            assert(dcs(1))(equalTo(buyFreeItemCards(1).copy(count = 5, max = 1))) &&
+            assert(dcs(2))(equalTo(buyFreeItemCards(2).copy(count = 250, max = 25))) &&
+            assert(dcs(3))(equalTo(buyFreeItemCards(3).copy(count = 75, max = 29))) &&
+            assert(dcs(4))(equalTo(buyFreeItemCards(4)))
+        }
       },
     ),
   )

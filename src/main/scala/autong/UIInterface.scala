@@ -45,12 +45,6 @@ object UIInterface {
   trait Section {
     def title: IO[Option[Throwable], String]
 
-    def max: IO[Option[Throwable], Int]
-
-    def costRows: IO[Option[Throwable], Vector[CostRow]]
-
-    def productionRows: IO[Option[Throwable], Vector[ProductionRow]]
-
     protected def allBuyButtons: Task[Vector[Button]]
 
     final lazy val buyButtons = allBuyButtons.map(Some(_).filter(_.nonEmpty))
@@ -85,11 +79,11 @@ object UIInterface {
 
     def count: IO[Option[Throwable], Int]
 
-    final lazy val production: IO[Option[Throwable], Section] =
-      sections.flatMap(ZIOfind(_)(_.title.optional.map(_ contains "Production"))).some
+    def maxCanBuild: IO[Option[Throwable], Int]
 
-    final lazy val costs: IO[Option[Throwable], Section] =
-      sections.flatMap(ZIOfind(_)(_.title.optional.map(_ contains "Costs"))).some
+    def costRows: IO[Option[Throwable], Vector[CostRow]]
+
+    def productionRows: IO[Option[Throwable], Vector[ProductionRow]]
 
     final lazy val buyButtons: IO[Option[Throwable], Vector[Button]] =
       sections.map(_.lastOption).asSomeError.flatMap(ZIO.fromOption(_)).flatMap(_.buyButtons.some)
@@ -236,19 +230,6 @@ object UIInterface {
       val title: IO[Option[Throwable], String] =
         queryTextContent("div.heading-6 > div.row > div.col-auto", div) orElse queryTextContent("div.heading-6", div)
 
-      val max: IO[Option[Throwable], Int] =
-        queryIntContent("div.heading-6 > div.row > div:last-child > span:nth-child(2)", div)
-
-      private def getRows[Row](name: String, f: (html.Div) => Row) =
-        title.optional.map { title =>
-          if (title contains name) Some(div.children.toVector.tail.collect(isDiv).map(f)).filter(_.nonEmpty)
-          else None
-        }.some
-
-      val costRows: IO[Option[Throwable], Vector[CostRow]] = getRows("Costs", LiveCostRow)
-
-      val productionRows: IO[Option[Throwable], Vector[ProductionRow]] = getRows("Production", LiveProductionRow)
-
       val allBuyButtons: Task[Vector[Button]] =
         Task(div.querySelectorAll("div.row > div > button").toVector.collect(isBtn).map(LiveButton))
 
@@ -264,7 +245,7 @@ object UIInterface {
 
     final private case class LiveCard(div: html.Div) extends Card {
 
-      val sections: Task[Vector[Section]] = ZIO(
+      val sections: Task[Vector[LiveSection]] = ZIO(
         div
           .querySelectorAll("div.card.card-body > div.row.gx-3 > div:nth-child(2) > div.row.g-3 > div.col-12")
           .toVector
@@ -282,6 +263,23 @@ object UIInterface {
           "div.card > div.row > div.col-12 > div.row > div.col-12 > div.row > div:nth-child(3) > span",
           div,
         )
+
+      private val costsDiv =
+        sections.flatMap(ZIOfind(_)(_.title.optional.map(_ contains "Costs"))).some.map(_.div)
+
+      private val prodDiv = sections.flatMap(ZIOfind(_)(_.title.optional.map(_ contains "Production"))).some.map(_.div)
+
+      private def getRows[Row](f: (html.Div) => Row)(div: html.Div) =
+        ZIO.fromOption(Some(div.children.toVector.tail.collect(isDiv).map(f)).filter(_.nonEmpty))
+
+      val costRows: IO[Option[Throwable], Vector[CostRow]] =
+        costsDiv >>= getRows(LiveCostRow)
+
+      val productionRows: IO[Option[Throwable], Vector[ProductionRow]] =
+        prodDiv >>= getRows(LiveProductionRow)
+
+      val maxCanBuild: IO[Option[Throwable], Int] =
+        costsDiv.flatMap(queryIntContent("div.heading-6 > div.row > div:last-child > span:nth-child(2)", _))
 
     }
 

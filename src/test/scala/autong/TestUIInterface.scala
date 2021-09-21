@@ -22,9 +22,9 @@ object TestUIInterface {
     def toDynCard: IO[Option[Throwable], DynCard] = for {
       n  <- card.name
       c  <- card.count
-      m  <- card.costs.flatMap(_.max)
-      cr <- card.costs.flatMap(_.costRows).optional.asSomeError
-      pr <- card.production.flatMap(_.productionRows).optional.asSomeError
+      m  <- card.maxCanBuild
+      cr <- card.costRows.optional.asSomeError
+      pr <- card.productionRows.optional.asSomeError
     } yield DynCard(n, c, m, cr.orUndefined, pr.orUndefined)
 
   }
@@ -88,59 +88,73 @@ object TestUIInterface {
 
   case class TestSection(
       _title: js.UndefOr[String] = js.undefined,
-      _max: js.UndefOr[Int] = js.undefined,
       _buyButtons: Vector[Button] = Vector.empty,
-      _costRows: js.UndefOr[Vector[CostRow]] = js.undefined,
-      _productionRows: js.UndefOr[Vector[ProductionRow]] = js.undefined,
   ) extends Section {
-    val title: IO[Option[Throwable], String]                         = ZIO.fromOption(_title.toOption)
-    val max: IO[Option[Throwable], Int]                              = ZIO.fromOption(_max.toOption)
-    val allBuyButtons: Task[Vector[Button]]                          = Task.succeed(_buyButtons)
-    val costRows: IO[Option[Throwable], Vector[CostRow]]             = ZIO.fromOption(_costRows.toOption)
-    val productionRows: IO[Option[Throwable], Vector[ProductionRow]] = ZIO.fromOption(_productionRows.toOption)
+    val title: IO[Option[Throwable], String] = ZIO.fromOption(_title.toOption)
+    val allBuyButtons: Task[Vector[Button]]  = Task.succeed(_buyButtons)
   }
 
   case class TestCard(
       _name: js.UndefOr[String] = js.undefined,
       _count: js.UndefOr[Int] = js.undefined,
       _sections: Vector[Section] = Vector.empty,
+      max: js.UndefOr[Int] = js.undefined,
+      _costRows: js.UndefOr[Vector[CostRow]] = js.undefined,
+      _prodRows: js.UndefOr[Vector[ProductionRow]] = js.undefined,
   ) extends Card {
-    val name: IO[Option[Throwable], String] = ZIO.fromOption(_name.toOption)
-    val count: IO[Option[Throwable], Int]   = ZIO.fromOption(_count.toOption)
-    val sections: Task[Vector[Section]]     = Task.succeed(_sections)
+    val name: IO[Option[Throwable], String]                          = ZIO.fromOption(_name.toOption)
+    val count: IO[Option[Throwable], Int]                            = ZIO.fromOption(_count.toOption)
+    val sections: Task[Vector[Section]]                              = Task.succeed(_sections)
+    val maxCanBuild: IO[Option[Throwable], Int]                      = ZIO.fromOption(max.toOption)
+    val costRows: IO[Option[Throwable], Vector[CostRow]]             = ZIO.fromOption(_costRows.toOption)
+    val productionRows: IO[Option[Throwable], Vector[ProductionRow]] = ZIO.fromOption(_prodRows.toOption)
   }
 
   case class DynamicStandardCard(
       stateRef: Ref[DynCard],
-      costRows: js.UndefOr[Vector[CostRow]] = js.undefined,
-      productionRows: js.UndefOr[Vector[ProductionRow]] = js.undefined,
+      _costRows: js.UndefOr[Vector[CostRow]] = js.undefined,
+      _productionRows: js.UndefOr[Vector[ProductionRow]] = js.undefined,
   ) extends Card {
-    val name: IO[Option[Throwable], String] = stateRef.map(_.name).get
-    val count: IO[Option[Throwable], Int]   = stateRef.map(_.count).get
+    val name: IO[Option[Throwable], String]                          = stateRef.map(_.name).get
+    val count: IO[Option[Throwable], Int]                            = stateRef.map(_.count).get
+    val maxCanBuild: IO[Option[Throwable], Int]                      = stateRef.map(_.max).get
+    val costRows: IO[Option[Throwable], Vector[CostRow]]             = ZIO.fromOption(_costRows.toOption)
+    val productionRows: IO[Option[Throwable], Vector[ProductionRow]] = ZIO.fromOption(_productionRows.toOption)
 
-    val sections: Task[Vector[Section]] = stateRef.get.map { dc =>
+    val sections: Task[Vector[Section]] = {
       def clickAction(num: Int) = stateRef
         .update(dc => dc.copy(count = dc.count + num, max = dc.max - num))
         .whenM(stateRef.map(_.max).get.map(_ >= num))
 
-      def eqBtn(num: Int) = if (dc.count < num)
-        Some(TestClickActionButton(s"= $num", onClick = clickAction(num)))
-      else None
+      def eqBtn(num: Int) = stateRef
+        .map(_.count)
+        .get
+        .flatMap(count =>
+          ZIO.fromOption {
+            if (count < num)
+              Some(TestClickActionButton(s"= $num", onClick = clickAction(num - count)))
+            else None
+          }
+        )
 
-      Vector(
-        TestSection("Production", _productionRows = productionRows),
-        TestSection("Costs", dc.max, _costRows = costRows),
-        TestSection(_buyButtons =
-          Vector(
-            eqBtn(5),
-            eqBtn(25),
-            eqBtn(75),
-            eqBtn(150),
-            eqBtn(250),
-            Some(TestClickActionButton("+ 1", onClick = clickAction(1))),
-          ).flatten
-        ),
-      )
+      val buyBtns = ZIO.collect(
+        Vector(
+          eqBtn(5),
+          eqBtn(25),
+          eqBtn(75),
+          eqBtn(150),
+          eqBtn(250),
+          ZIO.succeed(TestClickActionButton("+ 1", onClick = clickAction(1))).asSomeError,
+        )
+      )(identity)
+
+      buyBtns.map { bb =>
+        Vector(
+          TestSection("Production"),
+          TestSection("Costs"),
+          TestSection(_buyButtons = bb),
+        )
+      }
     }
 
   }

@@ -6,7 +6,7 @@ import zio.{Has, RIO, Task, ZIO}
 object Buying {
 
   private def buildAllFromCard(card: Card, numToLeaveUnbuilt: Int) = {
-    val currMax = card.costs.flatMap(_.max).optional
+    val currMax = card.maxCanBuild.optional
 
     card.lastBuyButton.optional.flatMap {
       case None => ZIO.unit
@@ -64,14 +64,12 @@ object Buying {
         val freeItems =
           ZIO.collect(cards) { c =>
             for {
-              n     <- c.name
-              bb    <- c.firstBulkBuyButton
-              curr  <- c.count
-              costs <- c.costs
-              max   <- costs.max
-              prod  <- c.production
-              prs   <- prod.productionRows
-              _     <- onlyAllowAllFree(prs)
+              n    <- c.name
+              bb   <- c.firstBulkBuyButton
+              curr <- c.count
+              max  <- c.maxCanBuild
+              prs  <- c.productionRows
+              _    <- onlyAllowAllFree(prs)
             } yield FreeBuyInfo(n, bb, curr, max)
           }
 

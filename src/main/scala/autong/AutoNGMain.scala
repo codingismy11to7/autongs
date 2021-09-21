@@ -32,9 +32,9 @@ object AutoNGMain extends zio.App {
   private val clickRing  = clickBuy("= 50 + Ring")
   private val clickSwarm = clickBuy("= 100 + Swarm")
 
-  private def clickEMC(onlyMeteorite: Boolean) = (costs: Section) => {
+  private def clickEMC(onlyMeteorite: Boolean) = (card: Card) => {
     val rows =
-      if (onlyMeteorite) costs.costRows.flatMap(ZIO.filter(_)(_.rowName.map(_ == "Meteorite"))) else costs.costRows
+      if (onlyMeteorite) card.costRows.flatMap(ZIO.filter(_)(_.rowName.map(_ == "Meteorite"))) else card.costRows
 
     rows.flatMap(ZIO.foreach_(_)(_.emcButton.flatMap(_.click.asSomeError).optional.asSomeError))
   }
@@ -85,8 +85,7 @@ object AutoNGMain extends zio.App {
             .map(cards => List(cards.headOption, cards.lift(1), cards.lift(2), cards.lift(3)).map(ZIO.fromOption(_)))
             .flatMap {
               case segment :: ring :: swarm :: sphere :: Nil =>
-                val doEMC =
-                  segment.flatMap(_.costs).flatMap(clickEMC(opts.emcOnlyMeteorite)).optional.when(opts.autoEmc)
+                val doEMC = segment.flatMap(clickEMC(opts.emcOnlyMeteorite)).optional.when(opts.autoEmc)
 
                 val sphereBuyButtons = sphere.flatMap(_.buyButtons)
 
@@ -157,8 +156,8 @@ object AutoNGMain extends zio.App {
     currentPageCards.map(_.reverse).flatMap { cards =>
       ZIO.foreach_(cards) { card =>
         val rows =
-          if (onlyMeteorite) card.costs.flatMap(_.costRows).flatMap(ZIO.filter(_)(r => r.rowName.map(_ == "Meteorite")))
-          else card.costs.flatMap(_.costRows)
+          if (onlyMeteorite) card.costRows.flatMap(ZIO.filter(_)(r => r.rowName.map(_ == "Meteorite")))
+          else card.costRows
 
         val emcButtons = rows.flatMap(ZIO.collect(_)(_.emcButton).asSomeError)
 

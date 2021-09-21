@@ -25,7 +25,7 @@ object BuyMachinesDialog {
       case Some(cards) =>
         ZIO.collect(cards) { card =>
           for {
-            maxOpt <- card.costs.flatMap(_.max).optional.asSomeError
+            maxOpt <- card.maxCanBuild.optional.asSomeError
             name   <- card.name.optional.map(_.filterNot(_ == "Upgrade Storage")).some
           } yield Machine(name, maxOpt.isDefined)
         }
@@ -38,7 +38,7 @@ object BuyMachinesDialog {
     .useState(true)
     .useState(Set.empty[String])
     .useEffectOnMountBy((_, machinesState, _, limitTo) =>
-      collectCurrentMachines.purify.flatMap { machines =>
+      collectCurrentMachines.flatMap { machines =>
         machinesState.setState(machines) *> limitTo.setState(
           createMachineList(leaveUnbuilt = true, machines).map(_.name).toSet
         )
