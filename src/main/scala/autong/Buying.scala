@@ -27,18 +27,18 @@ object Buying {
 
       case Some(cards) =>
         def machinePassesFilter(card: Card) =
-          o.limitTo.fold[Task[Boolean]](ZIO.succeed(true)) { toBuild =>
-            card.name.optional.map(_.fold(false)(toBuild.contains))
-          }
+          ZIO
+            .fromOption(o.limitTo.toOption)
+            .foldM(_ => ZIO.succeed(true), toBuild => card.name.fold(_ => false, toBuild.contains))
 
         def buildIfWanted(card: Card, numToLeaveUnbuilt: Int) =
           buildAllFromCard(card, if (o.leaveUnbuilt getOrElse true) numToLeaveUnbuilt else 0)
             .whenM(machinePassesFilter(card))
 
         def loop(rem: Vector[Card] = cards.reverse, numToLeaveUnbuilt: Int = 1): Task[Unit] =
-          rem.headOption.fold[Task[Unit]](ZIO.unit)(
-            buildIfWanted(_, numToLeaveUnbuilt) *> loop(rem.tail, 1 + numToLeaveUnbuilt)
-          )
+          ZIO
+            .fromOption(rem.headOption)
+            .foldM(_ => Task.unit, buildIfWanted(_, numToLeaveUnbuilt) *> loop(rem.tail, 1 + numToLeaveUnbuilt))
 
         loop()
     }

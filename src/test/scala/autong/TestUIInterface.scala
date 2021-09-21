@@ -1,13 +1,14 @@
 package autong
 
 import autong.UIInterface._
+import autong.Utils.RichStr
 import zio._
 
 import scala.scalajs.js
 
 object TestUIInterface {
 
-  def create(page: Page, sideNavs: Vector[SideNavEntry]): ULayer[Has[UIInterface]] = ZLayer.succeed {
+  def create(page: Page, sideNavs: Vector[SideNavEntry] = Vector.empty): ULayer[Has[UIInterface]] = ZLayer.succeed {
     new UIInterface {
       override def currentPage: ZIO[Any, Option[Throwable], Page] = ZIO.succeed(page).asSomeError
 
@@ -41,10 +42,48 @@ object TestUIInterface {
     val totalStorage: IO[Option[Throwable], String] = ZIO.fromOption(_totalStorage.toOption)
   }
 
-  case class TestSideNavEntry(navBtn: TestSideNavButton, upgBtn: js.UndefOr[TestButton] = js.undefined)
-      extends SideNavEntry {
+  case class TestSideNavEntry(navBtn: SideNavButton, upgBtn: js.UndefOr[Button] = js.undefined) extends SideNavEntry {
     val navButton: IO[Option[Throwable], SideNavButton] = ZIO.succeed(navBtn).asSomeError
     val upgradeButton: IO[Option[Throwable], Button]    = ZIO.fromOption(upgBtn.toOption)
+  }
+
+  case class TestCostRow(
+      _rowName: String,
+      _emcButton: js.UndefOr[Button] = js.undefined,
+      remainingTime: js.UndefOr[String] = js.undefined,
+  ) extends CostRow {
+    val rowName: IO[Option[Throwable], String]       = ZIO.fromOption(_rowName.toOption)
+    val emcButton: IO[Option[Throwable], Button]     = ZIO.fromOption(_emcButton.toOption)
+    val timeRemaining: IO[Option[Throwable], String] = ZIO.fromOption(remainingTime.toOption)
+  }
+
+  case class TestProdRow(_rowName: String, _inputOrOutput: String) extends ProductionRow {
+    val rowName: IO[Option[Throwable], String]       = ZIO.fromOption(_rowName.toOption)
+    val inputOrOutput: IO[Option[Throwable], String] = ZIO.fromOption(_inputOrOutput.toOption)
+  }
+
+  case class TestSection(
+      _title: js.UndefOr[String] = js.undefined,
+      _max: js.UndefOr[Int] = js.undefined,
+      _buyButtons: Vector[Button] = Vector.empty,
+      _costRows: js.UndefOr[Vector[CostRow]] = js.undefined,
+      _productionRows: js.UndefOr[Vector[ProductionRow]] = js.undefined,
+  ) extends Section {
+    val title: IO[Option[Throwable], String]                         = ZIO.fromOption(_title.toOption)
+    val max: IO[Option[Throwable], Int]                              = ZIO.fromOption(_max.toOption)
+    val allBuyButtons: Task[Vector[Button]]                          = Task.succeed(_buyButtons)
+    val costRows: IO[Option[Throwable], Vector[CostRow]]             = ZIO.fromOption(_costRows.toOption)
+    val productionRows: IO[Option[Throwable], Vector[ProductionRow]] = ZIO.fromOption(_productionRows.toOption)
+  }
+
+  case class TestCard(
+      _name: js.UndefOr[String] = js.undefined,
+      _count: js.UndefOr[Int] = js.undefined,
+      _sections: Vector[Section] = Vector.empty,
+  ) extends Card {
+    val name: IO[Option[Throwable], String] = ZIO.fromOption(_name.toOption)
+    val count: IO[Option[Throwable], Int]   = ZIO.fromOption(_count.toOption)
+    val sections: Task[Vector[Section]]     = Task.succeed(_sections)
   }
 
   def createPage(name: String, _cards: Vector[Card] = Vector.empty): Page = new Page {

@@ -51,7 +51,9 @@ object UIInterface {
 
     def productionRows: IO[Option[Throwable], Vector[ProductionRow]]
 
-    def buyButtons: Task[Option[Vector[Button]]]
+    protected def allBuyButtons: Task[Vector[Button]]
+
+    final lazy val buyButtons = allBuyButtons.map(Some(_).filter(_.nonEmpty))
   }
 
   final case class BulkBuyButton(btn: Button, buyAmount: Int) {
@@ -247,11 +249,8 @@ object UIInterface {
 
       val productionRows: IO[Option[Throwable], Vector[ProductionRow]] = getRows("Production", LiveProductionRow)
 
-      val buyButtons: Task[Option[Vector[Button]]] =
-        Task(
-          Option(div.querySelectorAll("div.row > div > button").toVector.collect(isBtn).map(LiveButton))
-            .filter(_.nonEmpty)
-        )
+      val allBuyButtons: Task[Vector[Button]] =
+        Task(div.querySelectorAll("div.row > div > button").toVector.collect(isBtn).map(LiveButton))
 
     }
 
