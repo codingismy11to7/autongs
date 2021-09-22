@@ -9,6 +9,7 @@ import autong.Storage.{load, store}
 import autong.Technologies.navAndBoostUnlockAllTechs
 import autong.UIInterface._
 import japgolly.scalajs.react._
+import zio.ZIO.ifM
 import zio._
 import zio.clock.instant
 import zio.duration.durationInt
@@ -47,7 +48,7 @@ object AutoNGMain extends zio.App {
           st <- storedAndTotal
         } yield st._1 == st._2
 
-        ZIO.ifM(!ZIO.fromOption(Some(onlyUpgradeWhenFull)) || storedAndEqualSame)(e.upgradeButton, ZIO.fail(None))
+        ifM(!ZIO.fromOption(Some(onlyUpgradeWhenFull)) || storedAndEqualSame)(e.upgradeButton, ZIO.fail(None))
       }
       btnsToClick >>= (ZIO.foreach_(_)(b => b.click.unlessM(b.disabled)))
     }
@@ -78,7 +79,7 @@ object AutoNGMain extends zio.App {
 
     val doStorage = upgradeStorage(opts.onlyUpgradeStorageWhenFull).when(opts.storageEnabled)
 
-    ZIO.ifM(currPageIs("Dyson"))(
+    ifM(currPageIs("Dyson"))(
       {
         val doDyson =
           currentPageCards
@@ -93,22 +94,19 @@ object AutoNGMain extends zio.App {
                 val spherePurchased =
                   sphere.optional.map(_.isDefined) && sphereBuyButtons.optional.map(_.forall(_.isEmpty))
 
-                (doEMC *> spherePurchased.flatMap { spherePurchased =>
-                  ZIO
-                    .ifM((RPure(opts.buySwarmsAfterSphere) && RPure(spherePurchased)).asSomeError)(
+                (doEMC *> ifM((RPure(opts.buySwarmsAfterSphere) && spherePurchased).asSomeError)(
+                  swarm >>= clickSwarm,
+                  ifM(ring.flatMap(_.count).map(_ < opts.ringCount))(
+                    ring >>= clickRing,
+                    ifM(swarm.flatMap(_.count).map(_ < opts.swarmCount))(
                       swarm >>= clickSwarm,
-                      ring.flatMap(_.count).flatMap { ringCount =>
-                        if (ringCount < opts.ringCount) ring >>= clickRing
-                        else
-                          swarm.flatMap(_.count).flatMap { swarmCount =>
-                            if (swarmCount < opts.swarmCount) swarm >>= clickSwarm
-                            else if (opts.autoBuySphere) sphere >>= buySphere
-                            else (segment >>= click250).unless(spherePurchased)
-                          }
-                      },
-                    )
-                    .optional
-                }).asSomeError
+                      ifM(ZIO.succeed(opts.autoBuySphere).asSomeError)(
+                        sphere >>= buySphere,
+                        (segment >>= click250).unlessM(spherePurchased.asSomeError),
+                      ),
+                    ),
+                  ),
+                ).optional).asSomeError
 
               case _ => ZIO.unit // compiler doesn't know we always have a list of 4 items
             }
@@ -118,12 +116,12 @@ object AutoNGMain extends zio.App {
         val doEmc     = emcPage(opts.emcOnlyMeteorite).optional.when(opts.autoEmc && opts.emcAllPages)
         val buyFree   = buildFreeItems.when(opts.buyFreeItems).unlessM(currPageIs("Science"))
         val doScience = buildAllScience.whenM(currPageIs("Science") && RPure(opts.autoScienceEnabled))
-        val doMilitary = ZIO.ifM(RPure(opts.buyMilitary) && currPageIs("Military"))(
+        val doMilitary = ifM(RPure(opts.buyMilitary) && currPageIs("Military"))(
           buildAllMachines(BuildMachinesOpts(false)) *> runAutoScienceAndTech,
           empty,
         )
         val doComms = (retVal: Option[RetVal]) =>
-          ZIO.ifM(RPure(opts.buyCommunications) && currPageIs("Communication"))(
+          ifM(RPure(opts.buyCommunications) && currPageIs("Communication"))(
             currentPageCards.optional.flatMap {
               case None => ZIO.unit
 
@@ -171,11 +169,10 @@ object AutoNGMain extends zio.App {
   private def doEmc(sendNotification: (String) => RTask[Unit]) = (options: js.UndefOr[EMCOptions]) =>
     currPageName(sendNotification) { pageName =>
       lazy val runLoop: RTask[Unit] =
-        ZIO
-          .ifM(currPageIs(pageName))(
-            emcPage(false).optional *> runLoop,
-            sendNotification(s"Stopped Auto-EMCing on $pageName"),
-          )
+        ifM(currPageIs(pageName))(
+          emcPage(false).optional *> runLoop,
+          sendNotification(s"Stopped Auto-EMCing on $pageName"),
+        )
           .delay(options.flatMap(_.taskInterval).getOrElse(5000).millis)
 
       sendNotification(s"Auto-EMCing while on $pageName") *> runLoop.forkDaemon.as {}
@@ -185,11 +182,10 @@ object AutoNGMain extends zio.App {
     (buildOpts: BuildMachinesOpts) =>
       currPageName(sendNotification) { pageName =>
         lazy val runLoop: RTask[Unit] =
-          ZIO
-            .ifM(currPageIs(pageName))(
-              buildAllMachines(buildOpts) *> runLoop,
-              sendNotification(s"Stopped auto-buying on $pageName"),
-            )
+          ifM(currPageIs(pageName))(
+            buildAllMachines(buildOpts) *> runLoop,
+            sendNotification(s"Stopped auto-buying on $pageName"),
+          )
             .delay(options.taskInterval.millis)
 
         sendNotification(s"Auto-buying while on $pageName") *> runLoop.forkDaemon.as {}
