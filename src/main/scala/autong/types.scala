@@ -174,7 +174,7 @@ object Options {
   final val default =
     RequiredOptions(
       ringCount = 5,
-      swarmCount = 5,
+      swarmCount = 6,
       autoBuySphere = false,
       buySwarmsAfterSphere = false,
       taskInterval = 5000,
