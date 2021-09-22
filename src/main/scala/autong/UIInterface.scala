@@ -132,19 +132,13 @@ object UIInterface {
       def toBtn: Option[html.Button] = v.collect(isBtn)
     }
 
-    private def queryTextContent(
-        path: String,
-        from: raw.NodeSelector = dom.document,
-    ): IO[Option[Throwable], String] =
+    private def queryTextContent(path: String)(from: raw.NodeSelector = dom.document): IO[Option[Throwable], String] =
       ZIO.fromOption(Option(from.querySelector(path)).flatMap(e => e.textContent.toOption))
 
-    private def queryIntContent(path: String, from: raw.NodeSelector = dom.document): IO[Option[Throwable], Int] =
+    private def queryIntContent(path: String)(from: raw.NodeSelector = dom.document) =
       ZIO.fromOption(Option(from.querySelector(path)).flatMap(e => e.textContent.toOption).flatMap(_.toIntOption))
 
-    private def queryBtn(
-        path: String,
-        from: raw.NodeSelector = dom.document,
-    ): IO[Option[Throwable], html.Button] =
+    private def queryBtn(path: String, from: raw.NodeSelector = dom.document): IO[Option[Throwable], html.Button] =
       ZIO.fromOption(Option(from.querySelector(path)).toBtn)
 
     private[UIInterface] class LiveUIInterface extends UIInterface {
@@ -167,7 +161,7 @@ object UIInterface {
     final private case class LivePage(div: html.Div) extends Page {
 
       val pageName: IO[Option[Throwable], String] =
-        queryTextContent("div > div div.col > h5[role='heading']", div)
+        queryTextContent("div > div div.col > h5[role='heading']")(div)
 
       private def pageCards(pageContents: raw.Element): Task[Vector[Card]] =
         ZIO(pageContents.querySelectorAll("div.row.g-2 > div").toVector.collect(isDiv).map(LiveCard))
@@ -180,15 +174,15 @@ object UIInterface {
     }
 
     final private case class LiveSideNavButton(btn: html.Button) extends SideNavButton {
-      val name: IO[Option[Throwable], String] = queryTextContent("div.row > div:nth-child(2)", btn)
+      val name: IO[Option[Throwable], String] = queryTextContent("div.row > div:nth-child(2)")(btn)
 
       private val storageDiv: IO[Option[Throwable], html.Div] =
         ZIO.fromOption(Option(btn.querySelector("div.row > div:last-child")).toDiv)
 
-      val amountStored: IO[Option[Throwable], String] = storageDiv.flatMap(d => queryTextContent("span", d))
+      val amountStored: IO[Option[Throwable], String] = storageDiv.flatMap(queryTextContent("span"))
 
       val totalStorage: IO[Option[Throwable], String] =
-        storageDiv.flatMap(d => queryTextContent("small", d)).map(s => if (s.startsWith("/")) s.substring(1) else s)
+        storageDiv.flatMap(queryTextContent("small")).map(s => if (s.startsWith("/")) s.substring(1) else s)
 
       val click: Task[Unit] = Task(btn.click())
     }
@@ -206,21 +200,21 @@ object UIInterface {
     final private case class LiveCostRow(div: html.Div) extends CostRow {
 
       val rowName: IO[Option[Throwable], String] =
-        queryTextContent("div:nth-child(1) > button > div.row > div:nth-child(2)", div)
+        queryTextContent("div:nth-child(1) > button > div.row > div:nth-child(2)")(div)
 
       val emcButton: IO[Option[Throwable], Button] =
         queryBtn("div:nth-child(2) > button.me-3", div).map(LiveButton)
 
-      val timeRemaining: IO[Option[Throwable], String] = queryTextContent("div:last-child > small > span", div)
+      val timeRemaining: IO[Option[Throwable], String] = queryTextContent("div:last-child > small > span")(div)
     }
 
     final private case class LiveProductionRow(div: html.Div) extends ProductionRow {
 
       val rowName: IO[Option[Throwable], String] =
-        queryTextContent("div:nth-child(1) > button > div.row > div:nth-child(2)", div)
+        queryTextContent("div:nth-child(1) > button > div.row > div:nth-child(2)")(div)
 
       val inputOrOutput: IO[Option[Throwable], String] =
-        queryTextContent("div.col-auto > small:nth-child(1)", div)
+        queryTextContent("div.col-auto > small:nth-child(1)")(div)
 
     }
 
@@ -228,7 +222,7 @@ object UIInterface {
 
       // if there's max or calculator or whatever, the text is nested, otherwise it's just in the top heading-6
       val title: IO[Option[Throwable], String] =
-        queryTextContent("div.heading-6 > div.row > div.col-auto", div) orElse queryTextContent("div.heading-6", div)
+        queryTextContent("div.heading-6 > div.row > div.col-auto")(div) orElse queryTextContent("div.heading-6")(div)
 
       val allBuyButtons: Task[Vector[Button]] =
         Task(div.querySelectorAll("div.row > div > button").toVector.collect(isBtn).map(LiveButton))
@@ -255,19 +249,20 @@ object UIInterface {
 
       // "completed" cards have their name nested differently
       val name: IO[Option[Throwable], String] =
-        queryTextContent("div.card.card-body > div.row > div > div.row > div > div.row div > span.h6", div) orElse
-          queryTextContent("div.card.card-body > div.row > div.text-truncate > span.h6", div)
+        queryTextContent("div.card.card-body > div.row > div > div.row > div > div.row div > span.h6")(div) orElse
+          queryTextContent("div.card.card-body > div.row > div.text-truncate > span.h6")(div)
 
       val count: IO[Option[Throwable], Int] =
-        queryIntContent(
-          "div.card > div.row > div.col-12 > div.row > div.col-12 > div.row > div:nth-child(3) > span",
-          div,
+        queryIntContent("div.card > div.row > div.col-12 > div.row > div.col-12 > div.row > div:nth-child(3) > span")(
+          div
         )
 
-      private val costsDiv =
-        sections.flatMap(ZIOfind(_)(_.title.optional.map(_ contains "Costs"))).some.map(_.div)
+      private def sectionDivWithTitle(title: String) =
+        sections.flatMap(ZIOfind(_)(_.title.optional.map(_ contains title))).some.map(_.div)
 
-      private val prodDiv = sections.flatMap(ZIOfind(_)(_.title.optional.map(_ contains "Production"))).some.map(_.div)
+      private val costsDiv = sectionDivWithTitle("Costs")
+
+      private val prodDiv = sectionDivWithTitle("Production")
 
       private def getRows[Row](f: (html.Div) => Row)(div: html.Div) =
         ZIO.fromOption(Some(div.children.toVector.tail.collect(isDiv).map(f)).filter(_.nonEmpty))
@@ -279,7 +274,7 @@ object UIInterface {
         prodDiv >>= getRows(LiveProductionRow)
 
       val maxCanBuild: IO[Option[Throwable], Int] =
-        costsDiv.flatMap(queryIntContent("div.heading-6 > div.row > div:last-child > span:nth-child(2)", _))
+        costsDiv >>= queryIntContent("div.heading-6 > div.row > div:last-child > span:nth-child(2)")
 
     }
 
