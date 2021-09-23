@@ -1,8 +1,8 @@
 package autong
 
-import autong.AutoNG.{NotifListener, OptionsListener, StartListener}
+import autong.AutoNG.{BulkBuyListener, NotifListener, OptionsListener, StartListener}
 import autong.Bootstrap.bootstrapUi
-import autong.Buying.{buildAllMachines, buildFreeItems}
+import autong.Buying.{buildAllMachines, buildBulkMachines, buildFreeItems}
 import autong.Nav.navToPage
 import autong.Science.{buildAllScience, navAndBuildAllScience}
 import autong.Storage.{load, store}
@@ -197,6 +197,7 @@ object AutoNGMain extends zio.App {
       startListeners: List[StartListener] = Nil,
       optionListeners: List[OptionsListener] = Nil,
       notifListeners: List[NotifListener] = Nil,
+      bulkBuyListeners: List[BulkBuyListener] = Nil,
       lastScienceTime: Long = 0,
       workFiber: Option[Fiber.Runtime[Throwable, Unit]] = None,
   )
@@ -233,7 +234,10 @@ object AutoNGMain extends zio.App {
 
   }
 
-  private def createControllerAndStart(stateRef: zio.Ref[ANGState]) = {
+  private def createControllerAndStart(
+      stateRef: zio.Ref[ANGState],
+      bulkBuyingRef: RefM[Option[Fiber.Runtime[Throwable, Nothing]]],
+  ) = {
     val workFiber = stateRef.foldAll(
       identity,
       identity,
@@ -241,8 +245,9 @@ object AutoNGMain extends zio.App {
       (w: Option[Fiber.Runtime[Throwable, Unit]]) => s => Right(s.copy(workFiber = w)),
       s => Right(s.workFiber),
     )
-    val startedZ  = workFiber.map(_.isDefined).get
-    val currOptsZ = stateRef.map(_.options).get
+    val startedZ      = workFiber.map(_.isDefined).get
+    val isBulkBuyingZ = bulkBuyingRef.map(_.isDefined).get
+    val currOptsZ     = stateRef.map(_.options).get
     val runStateZ = stateRef.foldAll(
       identity,
       identity,
@@ -271,6 +276,13 @@ object AutoNGMain extends zio.App {
       (li: List[NotifListener]) => s => Right(s.copy(notifListeners = li)),
       s => Right(s.notifListeners),
     )
+    val bulkBuyLists = stateRef.foldAll(
+      identity,
+      identity,
+      identity,
+      (li: List[BulkBuyListener]) => s => Right(s.copy(bulkBuyListeners = li)),
+      s => Right(s.bulkBuyListeners),
+    )
 
     val addStartListenerZ    = (li: StartListener) => startLists.update(li :: _) *> (startedZ >>= (li(_)))
     val removeStartListenerZ = (li: StartListener) => startLists.update(_.filterNot(_ == li))
@@ -281,6 +293,9 @@ object AutoNGMain extends zio.App {
     val addNotifListenerZ    = (li: NotifListener) => notifLists.update(li :: _)
     val removeNotifListenerZ = (li: NotifListener) => notifLists.update(_.filterNot(_ == li))
     val sendNotificationZ    = (notif: String) => notifLists.get >>= (ZIO.foreach_(_)(_(notif)))
+    val addBBListenerZ       = (li: BulkBuyListener) => bulkBuyLists.update(li :: _) *> (isBulkBuyingZ >>= (li(_)))
+    val removeBBListenerZ    = (li: BulkBuyListener) => bulkBuyLists.update(_.filterNot(_ == li))
+    val fireBBListeners      = isBulkBuyingZ >>= (b => bulkBuyLists.get >>= (ZIO.foreach_(_)(_(b))))
 
     val updateRunningState = runStateZ.get >>= saveToLocalStorage("autoNGsRunningState")
     val setStarted         = (started: Boolean) => runStateZ.update(_.copy(started = started)) *> updateRunningState
@@ -312,6 +327,16 @@ object AutoNGMain extends zio.App {
 
     val startEmc     = (o: js.UndefOr[EMCOptions]) => doEmc(sendNotificationZ)(o).forkDaemon.unit
     val buyMachinesZ = (o: BuildMachinesOpts) => currOptsZ >>= (doBuyMachines(sendNotificationZ, _)(o).forkDaemon.unit)
+    val toggleBulkBuyZ: RIO[Has[UIInterface] with ZEnv, Unit] = {
+      val buy = (currOptsZ.map(_.taskInterval) >>= { taskInt =>
+        buildBulkMachines.catchAll(t => ZIO(t.printStackTrace())).delay(taskInt.millis)
+      }).forever
+
+      bulkBuyingRef.update {
+        case None    => buy.forkDaemon.map(Some(_))
+        case Some(f) => f.interrupt.as(None)
+      } *> fireBBListeners
+    }
 
     val createANG = for {
       hasSt <- ZIO.environment[Has[Storage]]
@@ -320,12 +345,13 @@ object AutoNGMain extends zio.App {
       st   = ZLayer.succeedMany(hasSt)
       ui   = ZLayer.succeedMany(hasUi)
     } yield new AutoNG {
-      override def start: RTask[Unit]                                      = startZ.psl(comb)
-      override def stop: RTask[Unit]                                       = stopZ.psl(st)
+      override val start: RTask[Unit]                                      = startZ.psl(comb)
+      override val stop: RTask[Unit]                                       = stopZ.psl(st)
       override def reconfigure(options: js.UndefOr[Options]): RTask[Unit]  = reconfigureZ(options).psl(st)
       override def setOptions(options: Options): RTask[Unit]               = setOptionsZ(options).psl(st)
       override def emc: (js.UndefOr[EMCOptions]) => RTask[Unit]            = o => startEmc(o).psl(ui)
       override def buyMachines: (BuildMachinesOpts) => RTask[Unit]         = o => buyMachinesZ(o).psl(ui)
+      override val toggleBulkBuy: RTask[Unit]                              = toggleBulkBuyZ.psl(ui)
       override def sendNotification(notif: String): RTask[Unit]            = sendNotificationZ(notif)
       override def addStartListener(li: StartListener): RPure[Unit]        = addStartListenerZ(li).purify
       override def removeStartListener(li: StartListener): RPure[Unit]     = removeStartListenerZ(li).purify
@@ -333,6 +359,8 @@ object AutoNGMain extends zio.App {
       override def removeOptionsListener(li: OptionsListener): RPure[Unit] = removeOptsListenerZ(li).purify
       override def addNotifListener(li: NotifListener): RPure[Unit]        = addNotifListenerZ(li).purify
       override def removeNotifListener(li: NotifListener): RPure[Unit]     = removeNotifListenerZ(li).purify
+      override def addBulkBuyListener(li: BulkBuyListener): RPure[Unit]    = addBBListenerZ(li).purify
+      override def removeBulkBuyListener(li: BulkBuyListener): RPure[Unit] = removeBBListenerZ(li).purify
     }
 
     for {
@@ -343,7 +371,8 @@ object AutoNGMain extends zio.App {
 
   private val program = for {
     sr   <- stateRef
-    cont <- createControllerAndStart(sr)
+    bbr  <- RefM.make(Option.empty[Fiber.Runtime[Throwable, Nothing]])
+    cont <- createControllerAndStart(sr, bbr)
     ret  <- bootstrapUi(cont)
   } yield ret
 

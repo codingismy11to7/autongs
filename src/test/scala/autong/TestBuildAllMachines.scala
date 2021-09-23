@@ -1,6 +1,6 @@
 package autong
 
-import autong.Buying.{buildAllMachines, buildFreeItems}
+import autong.Buying.{buildAllMachines, buildBulkMachines, buildFreeItems}
 import autong.TestUIInterface._
 import zio.ZIO
 import zio.test.Assertion._
@@ -13,10 +13,10 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
     m2Build <- TestClickCountButton.make("Boost")
     m3Build <- TestClickCountButton.make("+ 1")
     m4Build <- TestClickCountButton.make("Build")
-    c1    = TestCard("Machine1", 5, Vector(TestSection(_buyButtons = Vector(m1Build))))
-    c2    = TestCard("Machine2", 5, Vector(TestSection(_buyButtons = Vector(m2Build))))
-    c3    = TestCard("Machine3", 5, Vector(TestSection(_buyButtons = Vector(m3Build))))
-    c4    = TestCard("", 5, Vector(TestSection(_buyButtons = Vector(m4Build))))
+    c1    = TestCard("Machine1", 5, Vector(TestBuyButtons(Vector(m1Build))))
+    c2    = TestCard("Machine2", 5, Vector(TestBuyButtons(Vector(m2Build))))
+    c3    = TestCard("Machine3", 5, Vector(TestBuyButtons(Vector(m3Build))))
+    c4    = TestCard("", 5, Vector(TestBuyButtons(Vector(m4Build))))
     cards = Vector(c1, c2, c3, c4)
     page  = createPage("Machines", cards)
     layer = TestUIInterface.create(page)
@@ -58,13 +58,46 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
     page <- createDynamicPage(
       "Resource",
       Vector(
-        TestCard("Overview", _sections = Vector(TestSection(_buyButtons = Vector(gain20)))),
-        TestCard("Upgrade Storage", 20, _sections = Vector(TestSection(_buyButtons = Vector(upgrade)))),
+        TestCard("Overview", _sections = Vector(TestBuyButtons(Vector(gain20)))),
+        TestCard("Upgrade Storage", 20, _sections = Vector(TestBuyButtons(Vector(upgrade)))),
       ),
       buyFreeItemCards,
     )
     layer = TestUIInterface.create(page)
     run   = buildFreeItems.provideCustomLayer(layer)
+    _             <- run
+    _             <- run.when(runTwice)
+    cards         <- page.cards.optional.map(_.getOrElse(Vector.empty))
+    dcs           <- ZIO.collect(cards)(_.toDynCard)
+    gain20Clicks  <- gain20.clicks
+    upgradeClicks <- upgrade.clicks
+  } yield (gain20Clicks, upgradeClicks, dcs)
+
+  private val bulkBuyMachinesCards = Vector(
+    DynCard("Small Pump", 150, 5),
+    DynCard("Pumpjack", 16, 113),
+    DynCard("Oil Field", 1, 71),
+    DynCard("Offshore Rig", 0, 57),
+    DynCard("Fossilator 9000", 1, 22),
+  )
+
+  private def testBulkBuyMachines(runTwice: Boolean = false) = for {
+    gain20  <- TestClickCountButton.make("Gain 20")
+    upgrade <- TestClickCountButton.make("Upgrade")
+    page <- createDynamicPage(
+      "Oil",
+      Vector(
+        TestCard("Overview", _sections = Vector(TestSection("Total"), TestBuyButtons(Vector(gain20)))),
+        TestCard(
+          "Upgrade Storage",
+          19,
+          _sections = Vector(TestSection("Costs"), TestBuyButtons(Vector(upgrade))),
+        ),
+      ),
+      bulkBuyMachinesCards,
+    )
+    layer = TestUIInterface.create(page)
+    run   = buildBulkMachines.provideCustomLayer(layer)
     _             <- run
     _             <- run.when(runTwice)
     cards         <- page.cards.optional.map(_.getOrElse(Vector.empty))
@@ -167,6 +200,31 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
             assert(dcs(3))(equalTo(buyFreeItemCards(3).copy(count = 75, max = 29))) &&
             assert(dcs(4))(equalTo(buyFreeItemCards(4)))
         }
+      },
+    ),
+    suite("bulk buy items")(
+      testM("should work") {
+        testBulkBuyMachines().map { case (gain20Clicks, upgradeClicks, dcs) =>
+          assert(gain20Clicks)(equalTo(0)) &&
+            assert(upgradeClicks)(equalTo(0)) &&
+            assert(dcs(0))(equalTo(bulkBuyMachinesCards(0))) &&
+            assert(dcs(1))(equalTo(bulkBuyMachinesCards(1).copy(count = 25, max = 104))) &&
+            assert(dcs(2))(equalTo(bulkBuyMachinesCards(2).copy(count = 5, max = 67))) &&
+            assert(dcs(3))(equalTo(bulkBuyMachinesCards(3).copy(count = 5, max = 52))) &&
+            assert(dcs(4))(equalTo(bulkBuyMachinesCards(4).copy(count = 5, max = 18)))
+        }
+      },
+      testM("should work when run again") {
+        testBulkBuyMachines(true).map { case (gain20Clicks, upgradeClicks, dcs) =>
+          assert(gain20Clicks)(equalTo(0)) &&
+            assert(upgradeClicks)(equalTo(0)) &&
+            assert(dcs(0))(equalTo(bulkBuyMachinesCards(0))) &&
+            assert(dcs(1))(equalTo(bulkBuyMachinesCards(1).copy(count = 75, max = 54))) &&
+            assert(dcs(2))(equalTo(bulkBuyMachinesCards(2).copy(count = 25, max = 47))) &&
+            assert(dcs(3))(equalTo(bulkBuyMachinesCards(3).copy(count = 25, max = 32))) &&
+            assert(dcs(4))(equalTo(bulkBuyMachinesCards(4).copy(count = 5, max = 18)))
+        }
+
       },
     ),
   )

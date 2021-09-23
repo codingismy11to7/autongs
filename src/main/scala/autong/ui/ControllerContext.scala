@@ -1,6 +1,6 @@
 package autong.ui
 
-import autong.AutoNG.{OptionsListener, StartListener}
+import autong.AutoNG.{BulkBuyListener, OptionsListener, StartListener}
 import autong.{AutoNG, Options, RequiredOptions}
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.feature.Context
@@ -20,6 +20,15 @@ object ControllerContext {
       controller.addStartListener(list).as(controller.removeStartListener(list))
     }
     .buildReturning((_, _, started) => started.value)
+
+  val isBulkBuying: CustomHook[Unit, Boolean] = CustomHook[Unit]
+    .custom(controller)
+    .useState(false)
+    .useEffectWithDepsBy((_, controller, _) => controller) { (_, _, buying) => controller =>
+      val list: BulkBuyListener = b => buying.setState(b)
+      controller.addBulkBuyListener(list).as(controller.removeStartListener(list))
+    }
+    .buildReturning((_, _, buying) => buying.value)
 
   val options: CustomHook[Unit, RequiredOptions] = CustomHook[Unit]
     .custom(controller)

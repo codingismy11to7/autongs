@@ -87,10 +87,14 @@ object TestUIInterface {
   }
 
   case class TestSection(
-      _title: js.UndefOr[String] = js.undefined,
-      _buyButtons: Vector[Button] = Vector.empty,
+      _title: js.UndefOr[String] = js.undefined
   ) extends Section {
     val title: IO[Option[Throwable], String] = ZIO.fromOption(_title.toOption)
+    val allBuyButtons: Task[Vector[Button]]  = Task.succeed(Vector.empty)
+  }
+
+  case class TestBuyButtons(_buyButtons: Vector[Button]) extends Section {
+    val title: IO[Option[Throwable], String] = ZIO.fromOption(None)
     val allBuyButtons: Task[Vector[Button]]  = Task.succeed(_buyButtons)
   }
 
@@ -152,7 +156,7 @@ object TestUIInterface {
         Vector(
           TestSection("Production"),
           TestSection("Costs"),
-          TestSection(_buyButtons = bb),
+          TestBuyButtons(bb),
         )
       }
     }

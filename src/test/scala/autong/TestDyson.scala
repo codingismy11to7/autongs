@@ -85,7 +85,7 @@ object TestDyson extends DefaultRunnableSpec {
       TestCard(
         "Segment",
         25,
-        Vector(TestSection("Costs"), TestSection(_buyButtons = Vector(eq50, eq100, eq250, plusOne))),
+        Vector(TestSection("Costs"), TestBuyButtons(Vector(eq50, eq100, eq250, plusOne))),
         150,
         Vector("Titanium", "Gold", "Silicon", "Meteorite", "Ice").map(TestCostRow(_)),
       ),
@@ -95,7 +95,7 @@ object TestDyson extends DefaultRunnableSpec {
         Vector(
           TestSection("Production"),
           TestSection("Costs"),
-          TestSection(_buyButtons = Vector(eq50PlusRing, ringBuild)),
+          TestBuyButtons(Vector(eq50PlusRing, ringBuild)),
         ),
         js.undefined,
         Vector("Segment", "Fuel").map(TestCostRow(_)),
@@ -110,7 +110,7 @@ object TestDyson extends DefaultRunnableSpec {
         Vector(
           TestSection("Production"),
           TestSection("Costs"),
-          TestSection(_buyButtons = Vector(eq100PlusSwarm, swarmBuild)),
+          TestBuyButtons(Vector(eq100PlusSwarm, swarmBuild)),
         ),
         js.undefined,
         Vector("Segment", "Fuel").map(TestCostRow(_)),
@@ -124,7 +124,7 @@ object TestDyson extends DefaultRunnableSpec {
           Vector(
             TestSection("Production"),
             TestSection("Costs"),
-            TestSection(_buyButtons = Vector(eq250PlusSphere, sphereBuild)),
+            TestBuyButtons(Vector(eq250PlusSphere, sphereBuild)),
           ),
           js.undefined,
           Vector("Segment", "Fuel").map(TestCostRow(_)),

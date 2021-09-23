@@ -1,6 +1,6 @@
 package autong
 
-import autong.AutoNG.{NotifListener, OptionsListener, StartListener}
+import autong.AutoNG.{BulkBuyListener, NotifListener, OptionsListener, StartListener}
 import japgolly.scalajs.react._
 import zio.prelude.{Equal, EqualOps}
 
@@ -11,6 +11,8 @@ object AutoNG {
   type StartListener   = (Started) => RPure[Unit]
   type OptionsListener = (RequiredOptions) => RPure[Unit]
   type NotifListener   = (String) => RPure[Unit]
+  type BulkBuying      = Boolean
+  type BulkBuyListener = (BulkBuying) => RPure[Unit]
 
   implicit val r: Reusability[AutoNG] = Reusability.byRef
 }
@@ -25,6 +27,7 @@ trait AutoNG {
 
   def emc: (js.UndefOr[EMCOptions]) => RTask[Unit]
   def buyMachines: (BuildMachinesOpts) => RTask[Unit]
+  def toggleBulkBuy: RTask[Unit]
 
   def sendNotification(notif: String): RTask[Unit]
 
@@ -36,6 +39,9 @@ trait AutoNG {
 
   def addNotifListener(listener: NotifListener): RPure[Unit]
   def removeNotifListener(listener: NotifListener): RPure[Unit]
+
+  def addBulkBuyListener(listener: BulkBuyListener): RPure[Unit]
+  def removeBulkBuyListener(listener: BulkBuyListener): RPure[Unit]
 }
 
 trait RunningState extends js.Object {
