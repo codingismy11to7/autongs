@@ -1,6 +1,6 @@
 package autong
 
-import autong.AutoNG.{BulkBuyListener, NotifListener, OptionsListener, StartListener}
+import autong.AutoNG.{NotifListener, OptionsListener, StartListener}
 import japgolly.scalajs.react._
 import zio.prelude.{Equal, EqualOps}
 
@@ -11,8 +11,6 @@ object AutoNG {
   type StartListener   = (Started) => RPure[Unit]
   type OptionsListener = (RequiredOptions) => RPure[Unit]
   type NotifListener   = (String) => RPure[Unit]
-  type BulkBuying      = Boolean
-  type BulkBuyListener = (BulkBuying) => RPure[Unit]
 
   implicit val r: Reusability[AutoNG] = Reusability.byRef
 }
@@ -27,7 +25,6 @@ trait AutoNG {
 
   def emc: (js.UndefOr[EMCOptions]) => RTask[Unit]
   def buyMachines: (BuildMachinesOpts) => RTask[Unit]
-  def toggleBulkBuy: RTask[Unit]
 
   def sendNotification(notif: String): RTask[Unit]
 
@@ -39,9 +36,6 @@ trait AutoNG {
 
   def addNotifListener(listener: NotifListener): RPure[Unit]
   def removeNotifListener(listener: NotifListener): RPure[Unit]
-
-  def addBulkBuyListener(listener: BulkBuyListener): RPure[Unit]
-  def removeBulkBuyListener(listener: BulkBuyListener): RPure[Unit]
 }
 
 trait RunningState extends js.Object {
@@ -78,6 +72,7 @@ trait Options extends js.Object {
   def buyCommunications: js.UndefOr[Boolean]          = js.undefined
   def buyMilitary: js.UndefOr[Boolean]                = js.undefined
   def buyFreeItems: js.UndefOr[Boolean]               = js.undefined
+  def bulkBuyMachines: js.UndefOr[Boolean]            = js.undefined
 }
 
 object Options {
@@ -98,7 +93,8 @@ object Options {
     a.autoSciTechInterval === b.autoSciTechInterval &&
     a.buyCommunications === b.buyCommunications &&
     a.buyMilitary === b.buyMilitary &&
-    a.buyFreeItems == b.buyFreeItems
+    a.buyFreeItems === b.buyFreeItems &&
+    a.bulkBuyMachines === b.bulkBuyMachines
   }
 
   def apply(
@@ -118,6 +114,7 @@ object Options {
       buyCommunications0: js.UndefOr[Boolean] = js.undefined,
       buyMilitary0: js.UndefOr[Boolean] = js.undefined,
       buyFreeItems0: js.UndefOr[Boolean] = js.undefined,
+      bulkBuyMachines0: js.UndefOr[Boolean] = js.undefined,
   ): Options = new Options {
     override val ringCount: js.UndefOr[Int]                      = ringCount0
     override val swarmCount: js.UndefOr[Int]                     = swarmCount0
@@ -135,6 +132,7 @@ object Options {
     override val buyCommunications: js.UndefOr[Boolean]          = buyCommunications0
     override val buyMilitary: js.UndefOr[Boolean]                = buyMilitary0
     override val buyFreeItems: js.UndefOr[Boolean]               = buyFreeItems0
+    override val bulkBuyMachines: js.UndefOr[Boolean]            = bulkBuyMachines0
   }
 
   implicit class RichOptions(val o: Options) extends AnyVal {
@@ -156,6 +154,7 @@ object Options {
         buyCommunications: js.UndefOr[Boolean] = o.buyCommunications,
         buyMilitary: js.UndefOr[Boolean] = o.buyMilitary,
         buyFreeItems: js.UndefOr[Boolean] = o.buyFreeItems,
+        bulkBuyMachines: js.UndefOr[Boolean] = o.bulkBuyMachines,
     ): Options = Options(
       ringCount,
       swarmCount,
@@ -173,6 +172,7 @@ object Options {
       buyCommunications,
       buyMilitary,
       buyFreeItems,
+      bulkBuyMachines,
     )
 
   }
@@ -195,6 +195,7 @@ object Options {
       buyCommunications = false,
       buyMilitary = false,
       buyFreeItems = true,
+      bulkBuyMachines = false,
     )
 
   def setDefaults(opts: js.UndefOr[Options]): RequiredOptions =
@@ -216,6 +217,7 @@ object Options {
         o.buyCommunications.getOrElse(default.buyCommunications),
         o.buyMilitary.getOrElse(default.buyMilitary),
         o.buyFreeItems.getOrElse(default.buyFreeItems),
+        o.bulkBuyMachines.getOrElse(default.bulkBuyMachines),
       )
     )
 
@@ -243,6 +245,7 @@ case class RequiredOptions(
     buyCommunications: Boolean,
     buyMilitary: Boolean,
     buyFreeItems: Boolean,
+    bulkBuyMachines: Boolean,
 ) {
 
   def combineWith(n: Options): RequiredOptions = RequiredOptions(
@@ -262,6 +265,7 @@ case class RequiredOptions(
     n.buyCommunications getOrElse buyCommunications,
     n.buyMilitary getOrElse buyMilitary,
     n.buyFreeItems getOrElse buyFreeItems,
+    n.bulkBuyMachines getOrElse bulkBuyMachines,
   )
 
   def toOptions: Options = Options(
@@ -281,6 +285,7 @@ case class RequiredOptions(
     buyCommunications,
     buyMilitary,
     buyFreeItems,
+    bulkBuyMachines,
   )
 
   def toJson: String = js.JSON.stringify(toOptions)
