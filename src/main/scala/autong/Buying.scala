@@ -53,12 +53,15 @@ object Buying {
     final lazy val canBulkBuyWithOneRemaining = bbb.buyAmount < (currentAmount + maxCanBuild)
   }
 
-  type ItemName      = String
-  type AmountClicked = Int
-  type OnBulkBuy     = (ItemName, AmountClicked) => RIO[ZEnv, Unit]
+  type ItemName       = String
+  type AmountClicked  = Int
+  type ActuallyBought = Int
+  type OnBulkBuy      = (ItemName, AmountClicked, ActuallyBought) => RIO[ZEnv, Unit]
 
   private def bulkBuyItems(items: Iterable[BulkBuyInfo], onBuy: OnBulkBuy) =
-    ZIO.foreach_(items.filter(_.canBulkBuyWithOneRemaining))(i => onBuy(i.name, i.bbb.buyAmount) *> i.bbb.click)
+    ZIO.foreach_(items.filter(_.canBulkBuyWithOneRemaining))(i =>
+      onBuy(i.name, i.bbb.buyAmount, i.bbb.buyAmount - i.currentAmount) *> i.bbb.click
+    )
 
   private def bulkBuyMachines(
       onBulkBuy: OnBulkBuy

@@ -55,10 +55,10 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
     DynCard("NonFree", 1, 100, productionRows = Vector(TestProdRow("Energy", "-1"))),
   ).map(c => c.copy(productionRows = TestProdRow("Resource", "+10") +: c.productionRows.getOrElse(Vector.empty)))
 
-  private def boughtStr(itemName: String, amountClicked: Int) =
-    s"bought $amountClicked on $itemName"
+  private def boughtStr(itemName: String, amountClicked: Int, amountBought: Int) =
+    s"bought $amountBought with $amountClicked on $itemName"
 
-  private val obb: OnBulkBuy = (in, ac) => putStrLn(boughtStr(in, ac))
+  private val obb: OnBulkBuy = (in, ac, ab) => putStrLn(boughtStr(in, ac, ab))
 
   private def testBuildFree(runTwice: Boolean = false) = for {
     gain20  <- TestClickCountButton.make("Gain 20")
@@ -198,7 +198,15 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
             assert(dcs(2))(equalTo(buyFreeItemCards(2).copy(count = 250, max = 25))) &&
             assert(dcs(3))(equalTo(buyFreeItemCards(3).copy(count = 25, max = 79))) &&
             assert(dcs(4))(equalTo(buyFreeItemCards(4))) &&
-            assert(notifs)(equalTo(Vector(boughtStr("Free2", 5), boughtStr("Free3", 250), boughtStr("Free4", 25))))
+            assert(notifs)(
+              equalTo(
+                Vector(
+                  boughtStr("Free2", 5, 2),
+                  boughtStr("Free3", 250, 75),
+                  boughtStr("Free4", 25, 1),
+                )
+              )
+            )
         }
       } @@ silent,
       testM("should work when run again") {
@@ -212,7 +220,12 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
             assert(dcs(4))(equalTo(buyFreeItemCards(4))) &&
             assert(notifs)(
               equalTo(
-                Vector(boughtStr("Free2", 5), boughtStr("Free3", 250), boughtStr("Free4", 25), boughtStr("Free4", 75))
+                Vector(
+                  boughtStr("Free2", 5, 2),
+                  boughtStr("Free3", 250, 75),
+                  boughtStr("Free4", 25, 1),
+                  boughtStr("Free4", 75, 50),
+                )
               )
             )
         }
@@ -231,10 +244,10 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
             assert(notifs)(
               equalTo(
                 Vector(
-                  boughtStr("Pumpjack", 25),
-                  boughtStr("Oil Field", 5),
-                  boughtStr("Offshore Rig", 5),
-                  boughtStr("Fossilator 9000", 5),
+                  boughtStr("Pumpjack", 25, 9),
+                  boughtStr("Oil Field", 5, 4),
+                  boughtStr("Offshore Rig", 5, 5),
+                  boughtStr("Fossilator 9000", 5, 4),
                 )
               )
             )
@@ -252,13 +265,13 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
             assert(notifs)(
               equalTo(
                 Vector(
-                  boughtStr("Pumpjack", 25),
-                  boughtStr("Oil Field", 5),
-                  boughtStr("Offshore Rig", 5),
-                  boughtStr("Fossilator 9000", 5),
-                  boughtStr("Pumpjack", 75),
-                  boughtStr("Oil Field", 25),
-                  boughtStr("Offshore Rig", 25),
+                  boughtStr("Pumpjack", 25, 9),
+                  boughtStr("Oil Field", 5, 4),
+                  boughtStr("Offshore Rig", 5, 5),
+                  boughtStr("Fossilator 9000", 5, 4),
+                  boughtStr("Pumpjack", 75, 50),
+                  boughtStr("Oil Field", 25, 20),
+                  boughtStr("Offshore Rig", 25, 20),
                 )
               )
             )

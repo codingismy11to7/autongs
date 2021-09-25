@@ -114,7 +114,7 @@ object AutoNGMain extends zio.App {
 
         doDyson.optional *> doStorage *> runAutoScienceAndTech
       }, {
-        val onBulkBuy: OnBulkBuy = (in, am) => sendNotification(s"Bought up to $am on $in")
+        val onBulkBuy: OnBulkBuy = (in, am, ab) => sendNotification(s"Bought $ab to reach $am on $in")
         val doEmc                = emcPage(opts.emcOnlyMeteorite).optional.when(opts.autoEmc && opts.emcAllPages)
         val buyFree              = buildFreeItems(onBulkBuy).when(opts.buyFreeItems).unlessM(currPageIs("Science"))
         val buyBulk              = buildBulkMachines(onBulkBuy).when(opts.bulkBuyMachines)
