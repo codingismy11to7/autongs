@@ -4,11 +4,14 @@ package ui
 import autong.Utils._
 import autong.ui.ControllerContext._
 import autong.ui.hooks.useStateFromProps
+import io.kinoplan.scalajs.react.bridge.JsWriter
 import io.kinoplan.scalajs.react.material.ui.core._
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.component.ScalaFn.Unmounted
 import japgolly.scalajs.react.feature.ReactFragment
 import japgolly.scalajs.react.vdom.html_<^._
+import org.scalajs.dom
+import org.scalajs.dom.html
 import zio.prelude.EqualOps
 
 import scala.scalajs.js
@@ -82,6 +85,10 @@ object OptionsDialog {
         val autoTechsEnabled   = currOptions.value.autoTechsEnabled getOrElse savedOptions.autoTechsEnabled
 
         val (currentNotif, markAsRead) = currNotif
+
+        val selOnFocus: js.Function1[dom.FocusEvent, Unit] = e => e.target.asInstanceOf[html.Input].select()
+        val saveOnEnter: js.Function1[dom.KeyboardEvent, Unit] =
+          e => implicitly[JsWriter[RTask[Unit]]].toJs(onSave.when(e.key == "Enter"))
 
         ReactFragment(
           if (machinesDlgOpen.value) BuyMachinesDialog(onBuyMachinesCancel, buyMachines) else ReactFragment(),
@@ -190,7 +197,11 @@ object OptionsDialog {
                 )
               ),
               MuiDivider()(),
-              MuiTextField(label = "Run Interval (ms)": VdomNode, fullWidth = true)(
+              MuiTextField(
+                label = "Run Interval (ms)": VdomNode,
+                fullWidth = true,
+                inputProps = js.special.objectLiteral("onFocus" -> selOnFocus, "onKeyUp" -> saveOnEnter),
+              )(
                 ^.value := currOptions.value.taskInterval,
                 ^.onChange ==> ((e: ReactEventFromInput) => setTaskInterval(e.target.value)),
               ),
