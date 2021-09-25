@@ -2,8 +2,9 @@ package autong
 
 import autong.AutoNG.{NotifListener, OptionsListener, StartListener}
 import autong.Bootstrap.bootstrapUi
-import autong.Buying.{buildAllMachines, buildBulkMachines, buildFreeItems}
+import autong.Buying.{buildAllMachines, buildBulkMachines, buildFreeItems, OnBulkBuy}
 import autong.Nav.navToPage
+import autong.Notifications.sendNotification
 import autong.Science.{buildAllScience, navAndBuildAllScience}
 import autong.Storage.{load, store}
 import autong.Technologies.navAndBoostUnlockAllTechs
@@ -113,10 +114,11 @@ object AutoNGMain extends zio.App {
 
         doDyson.optional *> doStorage *> runAutoScienceAndTech
       }, {
-        val doEmc     = emcPage(opts.emcOnlyMeteorite).optional.when(opts.autoEmc && opts.emcAllPages)
-        val buyFree   = buildFreeItems.when(opts.buyFreeItems).unlessM(currPageIs("Science"))
-        val buyBulk   = buildBulkMachines.when(opts.bulkBuyMachines)
-        val doScience = buildAllScience.whenM(currPageIs("Science") && RPure(opts.autoScienceEnabled))
+        val onBulkBuy: OnBulkBuy = (in, am) => sendNotification(s"Bought up to $am on $in")
+        val doEmc                = emcPage(opts.emcOnlyMeteorite).optional.when(opts.autoEmc && opts.emcAllPages)
+        val buyFree              = buildFreeItems(onBulkBuy).when(opts.buyFreeItems).unlessM(currPageIs("Science"))
+        val buyBulk              = buildBulkMachines(onBulkBuy).when(opts.bulkBuyMachines)
+        val doScience            = buildAllScience.whenM(currPageIs("Science") && RPure(opts.autoScienceEnabled))
         val doMilitary = ifM(RPure(opts.buyMilitary) && currPageIs("Military"))(
           buildAllMachines(BuildMachinesOpts(false)) *> runAutoScienceAndTech,
           empty,
@@ -164,11 +166,14 @@ object AutoNGMain extends zio.App {
       }
     }
 
-  private def currPageName(sendNotification: (String) => RTask[Unit])(f: (String) => RTask[Unit]) =
-    currentPageName.optional.flatMap(_.fold(sendNotification("Couldn't find a current page name"))(f))
+  private def currPageName(f: (String) => RTask[Unit]) =
+    currentPageName.optional.flatMap {
+      case None     => sendNotification("Couldn't find a current page name")
+      case Some(pn) => f(pn)
+    }
 
-  private def doEmc(sendNotification: (String) => RTask[Unit]) = (options: js.UndefOr[EMCOptions]) =>
-    currPageName(sendNotification) { pageName =>
+  private def doEmc(options: js.UndefOr[EMCOptions]) =
+    currPageName { pageName =>
       lazy val runLoop: RTask[Unit] =
         ifM(currPageIs(pageName))(
           emcPage(false).optional *> runLoop,
@@ -179,9 +184,9 @@ object AutoNGMain extends zio.App {
       sendNotification(s"Auto-EMCing while on $pageName") *> runLoop.forkDaemon.as {}
     }
 
-  private def doBuyMachines(sendNotification: (String) => RTask[Unit], options: RequiredOptions) =
+  private def doBuyMachines(options: RequiredOptions) =
     (buildOpts: BuildMachinesOpts) =>
-      currPageName(sendNotification) { pageName =>
+      currPageName { pageName =>
         lazy val runLoop: RTask[Unit] =
           ifM(currPageIs(pageName))(
             buildAllMachines(buildOpts) *> runLoop,
@@ -234,9 +239,26 @@ object AutoNGMain extends zio.App {
 
   }
 
-  private def createControllerAndStart(
-      stateRef: zio.Ref[ANGState]
-  ) = {
+  private case class Notifs(stateRef: Ref[ANGState]) {
+
+    private val notifLists = stateRef.foldAll(
+      identity,
+      identity,
+      identity,
+      (li: List[NotifListener]) => s => Right(s.copy(notifListeners = li)),
+      s => Right(s.notifListeners),
+    )
+
+    val addNotifListenerZ: (NotifListener) => UIO[Unit]    = li => notifLists.update(li :: _)
+    val removeNotifListenerZ: (NotifListener) => UIO[Unit] = li => notifLists.update(_.filterNot(_ == li))
+    val sendNotif: (String) => RIO[ZEnv, Unit] = notif => notifLists.get >>= (ZIO.foreach_(_)(_(notif).toZIO))
+
+    val notifLayer: ZLayer[ZEnv, Nothing, Has[Notifications]] =
+      ZLayer.fromFunctionM(env => ZIO.succeed((notif: String) => sendNotif(notif).provide(env)))
+
+  }
+
+  private def createControllerAndStart(stateRef: Ref[ANGState], notifs: Notifs) = {
     val workFiber = stateRef.foldAll(
       identity,
       identity,
@@ -267,13 +289,6 @@ object AutoNGMain extends zio.App {
       (li: List[OptionsListener]) => s => Right(s.copy(optionListeners = li)),
       s => Right(s.optionListeners),
     )
-    val notifLists = stateRef.foldAll(
-      identity,
-      identity,
-      identity,
-      (li: List[NotifListener]) => s => Right(s.copy(notifListeners = li)),
-      s => Right(s.notifListeners),
-    )
 
     val addStartListenerZ    = (li: StartListener) => startLists.update(li :: _) *> (startedZ >>= (li(_)))
     val removeStartListenerZ = (li: StartListener) => startLists.update(_.filterNot(_ == li))
@@ -281,12 +296,8 @@ object AutoNGMain extends zio.App {
     val addOptionsListenerZ  = (li: OptionsListener) => optsLists.update(li :: _) *> (currOptsZ >>= (li(_)))
     val removeOptsListenerZ  = (li: OptionsListener) => optsLists.update(_.filterNot(_ == li))
     val fireOptionListeners  = currOptsZ >>= (o => optsLists.get >>= (ZIO.foreach_(_)(_(o))))
-    val addNotifListenerZ    = (li: NotifListener) => notifLists.update(li :: _)
-    val removeNotifListenerZ = (li: NotifListener) => notifLists.update(_.filterNot(_ == li))
-    val sendNotificationZ    = (notif: String) => notifLists.get >>= (ZIO.foreach_(_)(_(notif)))
-
-    val updateRunningState = runStateZ.get >>= saveToLocalStorage("autoNGsRunningState")
-    val setStarted         = (started: Boolean) => runStateZ.update(_.copy(started = started)) *> updateRunningState
+    val updateRunningState   = runStateZ.get >>= saveToLocalStorage("autoNGsRunningState")
+    val setStarted           = (started: Boolean) => runStateZ.update(_.copy(started = started)) *> updateRunningState
 
     val handleRetVal = (r: Option[RetVal]) =>
       ZIO.succeed(r.flatMap(_.lastScienceTime)) >>= {
@@ -313,29 +324,30 @@ object AutoNGMain extends zio.App {
     val setOptionsZ = (opts: Options) =>
       stateRef.update(s => s.copy(options = s.options.combineWith(opts))) *> saveOptions *> fireOptionListeners
 
-    val startEmc     = (o: js.UndefOr[EMCOptions]) => doEmc(sendNotificationZ)(o).forkDaemon.unit
-    val buyMachinesZ = (o: BuildMachinesOpts) => currOptsZ >>= (doBuyMachines(sendNotificationZ, _)(o).forkDaemon.unit)
+    val startEmc     = (o: js.UndefOr[EMCOptions]) => doEmc(o).forkDaemon.unit
+    val buyMachinesZ = (o: BuildMachinesOpts) => currOptsZ >>= (doBuyMachines(_)(o).forkDaemon.unit)
 
     val createANG = for {
-      hasSt <- ZIO.environment[Has[Storage]]
-      hasUi <- ZIO.environment[Has[UIInterface]]
-      comb = ZLayer.succeedMany(hasSt ++ hasUi)
-      st   = ZLayer.succeedMany(hasSt)
-      ui   = ZLayer.succeedMany(hasUi)
+      hasSt     <- ZIO.environment[Has[Storage]]
+      hasUi     <- ZIO.environment[Has[UIInterface]]
+      hasNotifs <- ZIO.environment[Has[Notifications]]
+      comb        = ZLayer.succeedMany(hasSt ++ hasUi)
+      st          = ZLayer.succeedMany(hasSt)
+      uiAndNotifs = ZLayer.succeedMany(hasUi ++ hasNotifs)
     } yield new AutoNG {
       override val start: RTask[Unit]                                      = startZ.psl(comb)
       override val stop: RTask[Unit]                                       = stopZ.psl(st)
       override def reconfigure(options: js.UndefOr[Options]): RTask[Unit]  = reconfigureZ(options).psl(st)
       override def setOptions(options: Options): RTask[Unit]               = setOptionsZ(options).psl(st)
-      override def emc: (js.UndefOr[EMCOptions]) => RTask[Unit]            = o => startEmc(o).psl(ui)
-      override def buyMachines: (BuildMachinesOpts) => RTask[Unit]         = o => buyMachinesZ(o).psl(ui)
-      override def sendNotification(notif: String): RTask[Unit]            = sendNotificationZ(notif)
+      override def emc: (js.UndefOr[EMCOptions]) => RTask[Unit]            = o => startEmc(o).psl(uiAndNotifs)
+      override def buyMachines: (BuildMachinesOpts) => RTask[Unit]         = o => buyMachinesZ(o).psl(uiAndNotifs)
+      override def sendNotification(notif: String): RTask[Unit]            = notifs.sendNotif(notif)
       override def addStartListener(li: StartListener): RPure[Unit]        = addStartListenerZ(li).purify
       override def removeStartListener(li: StartListener): RPure[Unit]     = removeStartListenerZ(li).purify
       override def addOptionsListener(li: OptionsListener): RPure[Unit]    = addOptionsListenerZ(li).purify
       override def removeOptionsListener(li: OptionsListener): RPure[Unit] = removeOptsListenerZ(li).purify
-      override def addNotifListener(li: NotifListener): RPure[Unit]        = addNotifListenerZ(li).purify
-      override def removeNotifListener(li: NotifListener): RPure[Unit]     = removeNotifListenerZ(li).purify
+      override def addNotifListener(li: NotifListener): RPure[Unit]        = notifs.addNotifListenerZ(li).purify
+      override def removeNotifListener(li: NotifListener): RPure[Unit]     = notifs.removeNotifListenerZ(li).purify
     }
 
     for {
@@ -345,9 +357,12 @@ object AutoNGMain extends zio.App {
   }
 
   private val program = for {
-    sr   <- stateRef
-    cont <- createControllerAndStart(sr)
-    ret  <- bootstrapUi(cont)
+    sr <- stateRef
+    notifs     = Notifs(sr)
+    notifLayer = notifs.notifLayer
+    cont <- createControllerAndStart(sr, notifs)
+      .provideSomeLayer[Has[UIInterface] with Has[Storage] with ZEnv](notifLayer)
+    ret <- bootstrapUi(cont)
   } yield ret
 
   private val layers = Storage.live ++ UIInterface.live
