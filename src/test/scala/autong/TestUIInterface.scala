@@ -23,8 +23,8 @@ object TestUIInterface {
       n  <- card.name
       c  <- card.count
       m  <- card.maxCanBuild
-      cr <- card.costRows.optional.asSomeError
-      pr <- card.productionRows.optional.asSomeError
+      cr <- card.costRows.unsome.asSomeError
+      pr <- card.productionRows.unsome.asSomeError
     } yield DynCard(n, c, m, cr.orUndefined, pr.orUndefined)
 
   }
@@ -128,7 +128,8 @@ object TestUIInterface {
     val sections: Task[Vector[Section]] = {
       def clickAction(num: Int) = stateRef
         .update(dc => dc.copy(count = dc.count + num, max = dc.max - num))
-        .whenM(stateRef.map(_.max).get.map(_ >= num))
+        .whenZIO(stateRef.map(_.max).get.map(_ >= num))
+        .unit
 
       def eqBtn(num: Int) = stateRef
         .map(_.count)

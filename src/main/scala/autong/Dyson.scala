@@ -2,7 +2,7 @@ package autong
 
 import autong.UIInterface.{currentPageCards, Card}
 import zio.{Has, ZIO}
-import zio.ZIO.ifM
+import zio.ZIO.ifZIO
 
 object Dyson {
 
@@ -26,21 +26,21 @@ object Dyson {
 
           // if we have a sphere card but it has no buy buttons, we've bought it already
           val spherePurchased =
-            sphere.optional.map(_.isDefined) && sphereBuyButtons.optional.map(_.forall(_.isEmpty))
+            sphere.unsome.map(_.isDefined) && sphereBuyButtons.unsome.map(_.forall(_.isEmpty))
 
-          ifM((ZIO.succeed(opts.buySwarmsAfterSphere) && spherePurchased).asSomeError)(
-            swarm >>= clickSwarm,
-            ifM(ring.flatMap(_.count).map(_ < opts.ringCount))(
-              ring >>= clickRing,
-              ifM(swarm.flatMap(_.count).map(_ < opts.swarmCount))(
-                swarm >>= clickSwarm,
-                ifM(ZIO.succeed(opts.autoBuySphere).asSomeError)(
-                  sphere >>= buySphere,
-                  (segment >>= click250).unlessM(spherePurchased.asSomeError),
+          ifZIO((ZIO.succeed(opts.buySwarmsAfterSphere) && spherePurchased).asSomeError)(
+            swarm flatMap clickSwarm,
+            ifZIO(ring.flatMap(_.count).map(_ < opts.ringCount))(
+              ring flatMap clickRing,
+              ifZIO(swarm.flatMap(_.count).map(_ < opts.swarmCount))(
+                swarm flatMap clickSwarm,
+                ifZIO(ZIO.succeed(opts.autoBuySphere).asSomeError)(
+                  sphere flatMap buySphere,
+                  (segment flatMap click250).unlessZIO(spherePurchased.asSomeError),
                 ),
               ),
             ),
-          ).optional.asSomeError.unit
+          ).unsome.asSomeError.unit
 
         case _ => ZIO.unit // compiler doesn't know we always have a list of 4 items
       }

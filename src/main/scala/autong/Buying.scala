@@ -6,39 +6,40 @@ import zio._
 object Buying {
 
   private def buildAllFromCard(card: Card, numToLeaveUnbuilt: Int) = {
-    val currMax = card.maxCanBuild.optional
+    val currMax = card.maxCanBuild.unsome
 
-    card.lastBuyButton.optional.flatMap {
+    card.lastBuyButton.unsome.flatMap {
       case None => ZIO.unit
 
       case Some(btn) =>
         def loop(max: Option[Int]): Task[Unit] =
-          (btn.click *> ZIO.yieldNow *> (currMax >>= loop).when(max.isDefined))
+          (btn.click *> ZIO.yieldNow *> (currMax flatMap loop).when(max.isDefined).unit)
             .when(max.forall(_ > numToLeaveUnbuilt))
+            .unit
 
-        currMax >>= loop
+        currMax flatMap loop
     }
 
   }
 
   def buildAllMachines(o: BuildMachinesOpts = BuildMachinesOpts(true)): RIO[Has[UIInterface], Unit] =
-    currentPageCardsWithBuyButtons.optional.flatMap {
+    currentPageCardsWithBuyButtons.unsome.flatMap {
       case None => ZIO.unit
 
       case Some(cards) =>
         def machinePassesFilter(card: Card) =
           ZIO
             .fromOption(o.limitTo.toOption)
-            .foldM(_ => ZIO.succeed(true), toBuild => card.name.fold(_ => false, toBuild.contains))
+            .foldZIO(_ => ZIO.succeed(true), toBuild => card.name.fold(_ => false, toBuild.contains))
 
         def buildIfWanted(card: Card, numToLeaveUnbuilt: Int) =
           buildAllFromCard(card, if (o.leaveUnbuilt getOrElse true) numToLeaveUnbuilt else 0)
-            .whenM(machinePassesFilter(card))
+            .whenZIO(machinePassesFilter(card))
 
         def loop(rem: Vector[Card] = cards.reverse, numToLeaveUnbuilt: Int = 1): Task[Unit] =
           ZIO
             .fromOption(rem.headOption)
-            .foldM(_ => Task.unit, buildIfWanted(_, numToLeaveUnbuilt) *> loop(rem.tail, 1 + numToLeaveUnbuilt))
+            .foldZIO(_ => Task.unit, buildIfWanted(_, numToLeaveUnbuilt) *> loop(rem.tail, 1 + numToLeaveUnbuilt))
 
         loop()
     }
@@ -59,14 +60,14 @@ object Buying {
   type OnBulkBuy[R]   = (ItemName, AmountClicked, ActuallyBought) => RIO[R, Unit]
 
   private def bulkBuyItems[R](items: Iterable[BulkBuyInfo], onBuy: OnBulkBuy[R]) =
-    ZIO.foreach_(items.filter(_.canBulkBuyWithOneRemaining))(i =>
+    ZIO.foreachDiscard(items.filter(_.canBulkBuyWithOneRemaining))(i =>
       onBuy(i.name, i.bbb.buyAmount, i.bbb.buyAmount - i.currentAmount) *> i.bbb.click
     )
 
   private def bulkBuyMachines[R](
       onBulkBuy: OnBulkBuy[R]
   )(furtherFilter: (Card) => IO[Option[Throwable], Any] = _ => IO.unit) =
-    currentPageCardsWithBuyButtons.optional.flatMap {
+    currentPageCardsWithBuyButtons.unsome.flatMap {
       case None => UIO.unit
 
       case Some(cards) =>
@@ -92,7 +93,7 @@ object Buying {
   def buildFreeItems[R](onBulkBuy: OnBulkBuy[R]): ZIO[R with Has[UIInterface], Throwable, Unit] = {
     // if any of them start with '-' instead of '+' then they aren't all free
     def allFree(rows: Vector[ProductionRow]) = ZIO.foreach(rows)(_.inputOrOutput).map(_.forall(_ startsWith "+"))
-    def onlyAllowAllFree(rows: Vector[ProductionRow]) = allFree(rows).optional.map(_.filter(identity)).some
+    def onlyAllowAllFree(rows: Vector[ProductionRow]) = allFree(rows).unsome.map(_.filter(identity)).some
 
     bulkBuyMachines(onBulkBuy) { c =>
       for {

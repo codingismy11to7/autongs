@@ -6,7 +6,7 @@ name := "autongs"
 
 (ThisBuild / scalafmtOnCompile) := true
 
-(ThisBuild / scalacOptions) ++= Seq("-deprecation")
+(ThisBuild / scalacOptions) ++= Seq("-deprecation", "-Xfatal-warnings")
 
 val sjsReact = "2.0.0-RC3"
 val react    = "17.0.2"
@@ -14,15 +14,15 @@ val react    = "17.0.2"
 val mui = "4.12.3"
 //val mui = "3.9.0"
 
-val zioVersion = "1.0.11"
+val zioVersion = "2.0.0-M3"
 
 lazy val `core-ext-zio` = project
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio" %%% "zio-prelude" % "1.0.0-RC6" exclude ("io.github.cquiroz", "scala-java-time-tzdb_sjs1_2.13"),
+      "dev.zio" %%% "zio-prelude" % "1.0.0-RC6+53-d2ee9fc2+20210927-0953-SNAPSHOT" exclude ("io.github.cquiroz", "scala-java-time-tzdb_sjs1_2.13"),
 //      "dev.zio" %%% "zio" % "1.0.11" exclude ("io.github.cquiroz", "scala-java-time-tzdb_sjs1_2.13"),
-      "io.github.cquiroz" %%% "scala-java-time" % "2.2.0",
-//      "io.github.cquiroz"                 %%% "scala-java-time-tzdb" % "2.2.0",
+      "io.github.cquiroz" %%% "scala-java-time" % "2.3.0",
+//      "io.github.cquiroz"                 %%% "scala-java-time-tzdb" % "2.3.0",
       "com.github.japgolly.scalajs-react" %%% "core-generic"        % sjsReact,
       "com.github.japgolly.scalajs-react" %%% "util-dummy-defaults" % sjsReact % Provided,
     )

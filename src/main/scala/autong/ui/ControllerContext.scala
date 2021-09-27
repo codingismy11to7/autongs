@@ -12,13 +12,13 @@ object ControllerContext {
   private def createSyncListener[T](subscribe: UManaged[Dequeue[T]])(onItem: (T) => RTask[Unit]) = {
     val startListening = for {
       q <- subscribe
-      _ <- q.take.flatMap(onItem).forever.toManaged_
+      _ <- q.take.flatMap(onItem).forever.toManaged
     } yield {}
 
     val listFiberZ = startListening.useForever.forkDaemon
 
     RPure(zio.Runtime.default.unsafeRunTask(listFiberZ)).map { frt =>
-      RPure(zio.Runtime.default.unsafeRunAsync_(frt.interrupt))
+      RPure(zio.Runtime.default.unsafeRunAsync(frt.interrupt))
     }
   }
 

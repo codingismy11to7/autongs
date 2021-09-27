@@ -95,12 +95,12 @@ object UIInterface {
       sections.map(_.lastOption).asSomeError.flatMap(ZIO.fromOption(_)).flatMap(_.buyButtons.some)
 
     final def buyButton(name: String): IO[Option[Throwable], Button] =
-      buyButtons.optional.map(_.flatMap(_.find(_.name contains name))).some
+      buyButtons.unsome.map(_.flatMap(_.find(_.name contains name))).some
 
     final lazy val lastBuyButton: IO[Option[Throwable], Button] = buyButtons.map(_.last)
 
     final lazy val firstBulkBuyButton: IO[Option[Throwable], BulkBuyButton] =
-      buyButtons.optional.map(_.flatMap(_.headOption).flatMap(BulkBuyButton.opt)).some
+      buyButtons.unsome.map(_.flatMap(_.headOption).flatMap(BulkBuyButton.opt)).some
 
   }
 
@@ -111,14 +111,14 @@ object UIInterface {
 
   def findSideNav(name: String): ZIO[Has[UIInterface], Option[Throwable], SideNavEntry] =
     sideNavEntries
-      .flatMap(sideNavs => ZIOfind(sideNavs)(_.navButton.flatMap(_.name).optional.map(_ contains name)))
+      .flatMap(sideNavs => ZIOfind(sideNavs)(_.navButton.flatMap(_.name).unsome.map(_ contains name)))
       .some
 
   val currentPageCards: ZIO[Has[UIInterface], Option[Throwable], Vector[Card]] =
     currentPage.flatMap(_.cards)
 
   val currentPageCardsWithBuyButtons: ZIO[Has[UIInterface], Option[Throwable], Vector[Card]] =
-    currentPageCards.flatMap(ZIO.filter(_)(_.buyButtons.optional.map(_.exists(_.nonEmpty)).asSomeError))
+    currentPageCards.flatMap(ZIO.filter(_)(_.buyButtons.unsome.map(_.exists(_.nonEmpty)).asSomeError))
 
   lazy val live: ZLayer[Any, Nothing, Has[UIInterface]] = ZLayer.succeed {
     new liveHelpers.LiveUIInterface
@@ -264,7 +264,7 @@ object UIInterface {
         )
 
       private def sectionDivWithTitle(title: String) =
-        sections.flatMap(ZIOfind(_)(_.title.optional.map(_ contains title))).some.map(_.div)
+        sections.flatMap(ZIOfind(_)(_.title.unsome.map(_ contains title))).some.map(_.div)
 
       private val costsDiv = sectionDivWithTitle("Costs")
 
@@ -274,13 +274,13 @@ object UIInterface {
         ZIO.fromOption(Some(div.children.toVector.tail.collect(isDiv).map(f)).filter(_.nonEmpty))
 
       val costRows: IO[Option[Throwable], Vector[CostRow]] =
-        costsDiv >>= getRows(LiveCostRow)
+        costsDiv flatMap getRows(LiveCostRow)
 
       val productionRows: IO[Option[Throwable], Vector[ProductionRow]] =
-        prodDiv >>= getRows(LiveProductionRow)
+        prodDiv flatMap getRows(LiveProductionRow)
 
       val maxCanBuild: IO[Option[Throwable], Int] =
-        costsDiv >>= queryIntContent("div.heading-6 > div.row > div:last-child > span:nth-child(2)")
+        costsDiv flatMap queryIntContent("div.heading-6 > div.row > div:last-child > span:nth-child(2)")
 
     }
 

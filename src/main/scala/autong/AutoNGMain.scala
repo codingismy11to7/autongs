@@ -11,18 +11,17 @@ import autong.Storage.{load, store}
 import autong.Technologies.navAndBoostUnlockAllTechs
 import autong.UIInterface._
 import japgolly.scalajs.react._
-import zio.ZIO.ifM
+import zio.Clock.instant
+import zio.ZIO.ifZIO
 import zio._
-import zio.clock.{instant, Clock}
-import zio.duration.durationInt
 
 import scala.scalajs.js
 
-object AutoNGMain extends zio.App {
+object AutoNGMain extends ZIOAppDefault {
 
   private[autong] case class RetVal(lastScienceTime: Option[Long] = None)
 
-  private def currPageIs(name: String) = currentPageName.optional.map(_ contains name)
+  private def currPageIs(name: String) = currentPageName.unsome.map(_ contains name)
 
   private def clickEMCButtonIfWanted(emcOnlyWhenFull: Boolean)(row: CostRow) = {
     val doClick = row.emcButton.flatMap(_.click.asSomeError)
@@ -39,7 +38,7 @@ object AutoNGMain extends zio.App {
         isFull <- nb.isFull
       } yield isFull
 
-      doClick.whenM(isFull)
+      doClick.whenZIO(isFull)
     }
   }
 
@@ -47,7 +46,7 @@ object AutoNGMain extends zio.App {
     val rows =
       if (onlyMeteorite) card.costRows.flatMap(ZIO.filter(_)(_.rowName.map(_ == "Meteorite"))) else card.costRows
 
-    rows.flatMap(ZIO.foreach_(_)(r => clickEMCButtonIfWanted(emcOnlyWhenFull)(r).optional.asSomeError))
+    rows.flatMap(ZIO.foreachDiscard(_)(r => clickEMCButtonIfWanted(emcOnlyWhenFull)(r).unsome.asSomeError))
   }
 
   private def upgradeStorage(onlyUpgradeWhenFull: Boolean) =
@@ -61,10 +60,10 @@ object AutoNGMain extends zio.App {
           name <- nav.name
         } yield upg -> name
 
-        ifM(!ZIO.fromOption(Some(onlyUpgradeWhenFull)) || isFull)(buttonAndName, ZIO.fail(None))
+        ifZIO(!ZIO.fromOption(Some(onlyUpgradeWhenFull)) || isFull)(buttonAndName, ZIO.fail(None))
       }
-      btnsToClick.flatMap(ZIO.foreach_(_) { case (b, name) =>
-        (b.click *> sendNotification(s"Upgraded $name Storage")).unlessM(b.disabled)
+      btnsToClick.flatMap(ZIO.foreachDiscard(_) { case (b, name) =>
+        (b.click *> sendNotification(s"Upgraded $name Storage")).unlessZIO(b.disabled)
       })
     }
 
@@ -84,21 +83,21 @@ object AutoNGMain extends zio.App {
             } yield Some(RetVal(Some(currTime)))
         }
 
-    val runAutoScienceAndTech: RIO[Clock with Has[UIInterface], Option[RetVal]] =
+    val runAutoScienceAndTech: RIO[Has[Clock] with Has[UIInterface], Option[RetVal]] =
       if (!(opts.autoScienceEnabled || opts.autoTechsEnabled)) empty
       else
         for {
           currTime <- instant.map(_.toEpochMilli)
           elapsed = currTime - lastScienceTime
-          currPage <- currentPageName.optional
+          currPage <- currentPageName.unsome
           r        <- runAutoSciTechIfNeeded(currPage, elapsed, currTime)
         } yield r
 
     val doStorage = upgradeStorage(opts.onlyUpgradeStorageWhenFull).when(opts.storageEnabled)
-    val doEMC     = emcPage(opts.emcOnlyMeteorite, opts.emcOnlyWhenFull).optional.when(opts.autoEmc)
+    val doEMC     = emcPage(opts.emcOnlyMeteorite, opts.emcOnlyWhenFull).unsome.when(opts.autoEmc)
 
     def buildAllMachinesFor(pageName: String, when: Boolean) = (retVal: Option[RetVal]) =>
-      ifM(ZIO.succeed(when) && currPageIs(pageName))(
+      ifZIO(ZIO.succeed(when) && currPageIs(pageName))(
         buildAllMachines(BuildMachinesOpts(false)) *> runAutoScienceAndTech,
         ZIO.succeed(retVal),
       )
@@ -108,16 +107,16 @@ object AutoNGMain extends zio.App {
 
     val onBulkBuy: OnBulkBuy[Has[Notifications]] =
       (in, am, ab) => sendNotification(s"Bought $ab to reach $am on $in")
-    val buyFree      = buildFreeItems(onBulkBuy).when(opts.buyFreeItems).unlessM(isSciencePage || isDysonPage)
-    val buyBulk      = buildBulkMachines(onBulkBuy).when(opts.bulkBuyMachines).unlessM(isDysonPage)
-    val doScience    = buildAllScience.whenM(isSciencePage && ZIO.succeed(opts.autoScienceEnabled))
+    val buyFree      = buildFreeItems(onBulkBuy).when(opts.buyFreeItems).unlessZIO(isSciencePage || isDysonPage)
+    val buyBulk      = buildBulkMachines(onBulkBuy).when(opts.bulkBuyMachines).unlessZIO(isDysonPage)
+    val doScience    = buildAllScience.whenZIO(isSciencePage && ZIO.succeed(opts.autoScienceEnabled))
     val doAntimatter = buildAllMachinesFor("Antimatter", opts.buyAntimatter)
     val doMilitary   = buildAllMachinesFor("Military", opts.buyMilitary)
     val doSpaceship  = buildAllMachinesFor("Spaceship", opts.buySpaceship)
 
     val doComms =
-      ifM(ZIO.succeed(opts.buyCommunications) && currPageIs("Communication"))(
-        currentPageCards.optional.flatMap {
+      ifZIO(ZIO.succeed(opts.buyCommunications) && currPageIs("Communication"))(
+        currentPageCards.unsome.flatMap {
           case None => ZIO.unit
 
           case Some(cards) =>
@@ -127,7 +126,7 @@ object AutoNGMain extends zio.App {
                 c    <- ZIO.fromOption(cOpt)
                 bbs  <- c.buyButtons
                 bb   <- ZIO.fromOption(bbs.lastOption)
-              } yield bb).optional
+              } yield bb).unsome
 
             for {
               ab  <- buyBtn("Astronomical Breakthrough")
@@ -139,21 +138,22 @@ object AutoNGMain extends zio.App {
         empty,
       )
 
-    def doDyson(retVal: Option[RetVal]) = ifM(ZIO.succeed(opts.autoDyson) && isDysonPage)(
-      buildDyson(opts).optional *> runAutoScienceAndTech,
+    def doDyson(retVal: Option[RetVal]) = ifZIO(ZIO.succeed(opts.autoDyson) && isDysonPage)(
+      buildDyson(opts).unsome *> runAutoScienceAndTech,
       ZIO succeed retVal,
     )
 
-    doStorage *> doEMC *> buyFree *> buyBulk *> doScience *> (doComms >>= doMilitary >>= doSpaceship >>= doAntimatter >>= doDyson)
+    doStorage *> doEMC *> buyFree *> buyBulk *> doScience *>
+      (doComms flatMap doMilitary flatMap doSpaceship flatMap doAntimatter flatMap doDyson)
   }
 
   private def emcPage(onlyMeteorite: Boolean, onlyWhenFull: Boolean) =
     currentPageCards.map(_.reverse).flatMap { cards =>
-      ZIO.foreach_(cards)(card => clickEMC(onlyMeteorite, onlyWhenFull)(card).optional.asSomeError)
+      ZIO.foreachDiscard(cards)(card => clickEMC(onlyMeteorite, onlyWhenFull)(card).unsome.asSomeError)
     }
 
   private def currPageName[R, E](f: (String) => ZIO[R, E, Unit]) =
-    currentPageName.optional.flatMap {
+    currentPageName.unsome.flatMap {
       case None     => sendNotification("Couldn't find a current page name")
       case Some(pn) => f(pn)
     }
@@ -162,7 +162,7 @@ object AutoNGMain extends zio.App {
     (buildOpts: BuildMachinesOpts) =>
       currPageName { pageName =>
         lazy val runLoop: RIO[ZEnv with Has[UIInterface] with Has[Notifications], Unit] =
-          ifM(currPageIs(pageName))(
+          ifZIO(currPageIs(pageName))(
             buildAllMachines(buildOpts) *> runLoop,
             sendNotification(s"Stopped auto-buying on $pageName"),
           )
@@ -215,7 +215,7 @@ object AutoNGMain extends zio.App {
     val sendNotif: (String) => URIO[ZEnv, Unit] = notif => notifsHub.publish(notif).unit
 
     val notifLayer: ZLayer[ZEnv, Nothing, Has[Notifications]] =
-      ZLayer.fromFunctionM(env => ZIO.succeed((notif: String) => sendNotif(notif).provide(env)))
+      ZLayer.fromFunction(env => (notif: String) => sendNotif(notif).provide(env))
 
   }
 
@@ -248,23 +248,23 @@ object AutoNGMain extends zio.App {
     val setStarted          = (started: Boolean) => runStateZ.update(_.copy(started = started)) *> updateRunningState
 
     val handleRetVal = (r: Option[RetVal]) =>
-      ZIO.succeed(r.flatMap(_.lastScienceTime)) >>= {
+      ZIO.succeed(r.flatMap(_.lastScienceTime)).flatMap {
         case None      => RT
         case Some(lst) => stateRef.update(_.copy(lastScienceTime = lst))
       }
 
-    lazy val work = (stateRef.get >>= { state =>
-      (doWork(state.options, state.lastScienceTime) >>= handleRetVal).uninterruptible
+    lazy val work = stateRef.get.flatMap { state =>
+      (doWork(state.options, state.lastScienceTime) flatMap handleRetVal).uninterruptible
         .catchAll(t => ZIO(t.printStackTrace()))
         .delay(state.options.taskInterval.millis)
-    }).forever
-    val startWorking = work.forkDaemon.map(Some(_)) >>= workFiber.set
-    val stopWorking  = workFiber.modify(wf => wf -> None).flatMap(ZIO.fromOption(_)).flatMap(_.interrupt).optional.unit
+    }.forever
+    val startWorking = work.forkDaemon.map(Some(_)) flatMap workFiber.set
+    val stopWorking  = workFiber.modify(wf => wf -> None).flatMap(ZIO.fromOption(_)).flatMap(_.interrupt).unsome.unit
 
     val doStart     = startWorking *> fireStartListeners
-    val startZ      = (setStarted(true) *> doStart).unlessM(startedZ)
-    val stopZ       = (setStarted(false) *> stopWorking *> fireStartListeners).whenM(startedZ)
-    val saveOptions = currOptsZ.map(_.toOptions) >>= saveToLocalStorage("autoNGsOptions")
+    val startZ      = (setStarted(true) *> doStart).unlessZIO(startedZ).unit
+    val stopZ       = (setStarted(false) *> stopWorking *> fireStartListeners).whenZIO(startedZ).unit
+    val saveOptions = currOptsZ.map(_.toOptions) flatMap saveToLocalStorage("autoNGsOptions")
 
     val reconfigureZ = (opts: js.UndefOr[Options]) =>
       stateRef.update(_.copy(options = Options.setDefaults(opts))) *> saveOptions *> fireOptionListeners
@@ -272,7 +272,7 @@ object AutoNGMain extends zio.App {
     val setOptionsZ = (opts: Options) =>
       stateRef.update(s => s.copy(options = s.options.combineWith(opts))) *> saveOptions *> fireOptionListeners
 
-    val buyMachinesZ = (o: BuildMachinesOpts) => currOptsZ >>= (doBuyMachines(_)(o).forkDaemon.unit)
+    val buyMachinesZ = (o: BuildMachinesOpts) => currOptsZ flatMap (doBuyMachines(_)(o).forkDaemon.unit)
 
     val createANG = for {
       hasSt     <- ZIO.environment[Has[Storage]]
@@ -287,14 +287,14 @@ object AutoNGMain extends zio.App {
       override def buyMachines: (BuildMachinesOpts) => RTask[Unit]        = o => buyMachinesZ(o).psl(comb)
       override def sendNotification(notif: String): RTask[Unit]           = notifs.sendNotif(notif)
       override val subscribeToStarted: UManaged[Dequeue[Started]] =
-        startedHub.subscribe <* fireStartListeners.toManaged_
+        startedHub.subscribe <* fireStartListeners.toManaged
       override val subscribeToOptions: UManaged[Dequeue[RequiredOptions]] =
-        optsHub.subscribe <* fireOptionListeners.toManaged_
+        optsHub.subscribe <* fireOptionListeners.toManaged
       override val subscribeToNotifs: UManaged[Dequeue[String]] = notifs.notifsHub.subscribe
     }
 
     for {
-      _   <- doStart.whenM(runStateZ.map(_.started).get)
+      _   <- doStart.whenZIO(runStateZ.map(_.started).get)
       ang <- createANG
     } yield ang
   }
@@ -313,5 +313,5 @@ object AutoNGMain extends zio.App {
 
   private val layers = Storage.live ++ UIInterface.live
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = program.provideCustomLayer(layers).exitCode
+  override def run: ZIO[ZEnv with Has[ZIOAppArgs], Any, Any] = program.provideCustomLayer(layers)
 }

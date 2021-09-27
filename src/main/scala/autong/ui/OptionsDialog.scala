@@ -82,7 +82,7 @@ object OptionsDialog {
 
       val selOnFocus: js.Function1[dom.FocusEvent, Unit] = e => e.target.asInstanceOf[html.Input].select()
       val saveOnEnter: js.Function1[dom.KeyboardEvent, Unit] =
-        e => implicitly[JsWriter[RTask[Unit]]].toJs(onSave.when(e.key == "Enter"))
+        e => implicitly[JsWriter[RTask[Unit]]].toJs(onSave.when(e.key == "Enter").unit)
 
       val autoDyson = currOptions.value.autoDyson getOrElse savedOptions.autoDyson
 
@@ -91,7 +91,7 @@ object OptionsDialog {
         MuiSnackbar[RTask](
           autoHideDuration = 3000,
           open = currentNotif.isDefined,
-          onClose = js.defined((_, reason) => markAsRead.unless(reason == "clickaway")),
+          onClose = js.defined((_, reason) => markAsRead.unless(reason == "clickaway").unit),
           message = currentNotif.map(s => s: VdomNode).getOrElse(""): VdomNode,
         ).apply(),
         MuiDialog[RTask](

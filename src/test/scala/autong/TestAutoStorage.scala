@@ -28,7 +28,7 @@ object TestAutoStorage extends DefaultRunnableSpec {
     } yield (oilClickCount, metalClickCount, gemClickCount, woodClickCount)
 
   final val spec = suite("Auto Storage")(
-    testM("should do nothing when disabled") {
+    test("should do nothing when disabled") {
       runWithOpts(Options(storageEnabled0 = false)).map {
         case (oilClickCount, metalClickCount, gemClickCount, woodClickCount) =>
           assert(oilClickCount)(equalTo(0)) &&
@@ -37,7 +37,7 @@ object TestAutoStorage extends DefaultRunnableSpec {
             assert(woodClickCount)(equalTo(0))
       }
     },
-    testM("should work when only upgrade when full is true") {
+    test("should work when only upgrade when full is true") {
       runWithOpts(Options(storageEnabled0 = true, onlyUpgradeStorageWhenFull0 = true)).map {
         case (oilClickCount, metalClickCount, gemClickCount, woodClickCount) =>
           assert(oilClickCount)(equalTo(1)) &&
@@ -46,7 +46,7 @@ object TestAutoStorage extends DefaultRunnableSpec {
             assert(woodClickCount)(equalTo(0))
       }
     },
-    testM("should work when only upgrade when full is false") {
+    test("should work when only upgrade when full is false") {
       runWithOpts(Options(storageEnabled0 = true, onlyUpgradeStorageWhenFull0 = false)).map {
         case (oilClickCount, metalClickCount, gemClickCount, woodClickCount) =>
           assert(oilClickCount)(equalTo(1)) &&

@@ -18,15 +18,15 @@ object BuyMachinesDialog {
   private def createMachineList(leaveUnbuilt: Boolean, machines: Vector[Machine]) =
     if (leaveUnbuilt) machines.filter(_.hasMax) else machines
 
-  private val collectCurrentMachines = currentPageCardsWithBuyButtons.optional
+  private val collectCurrentMachines = currentPageCardsWithBuyButtons.unsome
     .flatMap {
       case None => RT.as(Vector.empty[Machine])
 
       case Some(cards) =>
         ZIO.collect(cards) { card =>
           for {
-            maxOpt <- card.maxCanBuild.optional.asSomeError
-            name   <- card.name.optional.map(_.filterNot(_ == "Upgrade Storage")).some
+            maxOpt <- card.maxCanBuild.unsome.asSomeError
+            name   <- card.name.unsome.map(_.filterNot(_ == "Upgrade Storage")).some
           } yield Machine(name, maxOpt.isDefined)
         }
     }

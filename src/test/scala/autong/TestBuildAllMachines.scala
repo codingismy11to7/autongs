@@ -2,12 +2,12 @@ package autong
 
 import autong.Buying.{buildAllMachines, buildBulkMachines, buildFreeItems, OnBulkBuy}
 import autong.TestUIInterface._
-import zio.ZIO
-import zio.console.{putStrLn, Console}
+import zio.Console.printLine
 import zio.test.Assertion._
 import zio.test.TestAspect.silent
 import zio.test._
 import zio.test.environment.TestConsole
+import zio.{Console, Has, ZIO}
 
 object TestBuildAllMachines extends DefaultRunnableSpec {
 
@@ -43,7 +43,7 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
     )
     layer = TestUIInterface.create(page)
     _     <- buildAllMachines(opts).provideCustomLayer(layer)
-    cards <- page.cards.optional.map(_.getOrElse(Vector.empty))
+    cards <- page.cards.unsome.map(_.getOrElse(Vector.empty))
     dcs   <- ZIO.collect(cards)(_.toDynCard)
   } yield dcs
 
@@ -58,7 +58,7 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
   private def boughtStr(itemName: String, amountClicked: Int, amountBought: Int) =
     s"bought $amountBought with $amountClicked on $itemName"
 
-  private val obb: OnBulkBuy[Console] = (in, ac, ab) => putStrLn(boughtStr(in, ac, ab))
+  private val obb: OnBulkBuy[Has[Console]] = (in, ac, ab) => printLine(boughtStr(in, ac, ab))
 
   private def testBuildFree(runTwice: Boolean = false) = for {
     gain20  <- TestClickCountButton.make("Gain 20")
@@ -75,7 +75,7 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
     run   = buildFreeItems(obb).provideCustomLayer(layer)
     _             <- run
     _             <- run.when(runTwice)
-    cards         <- page.cards.optional.map(_.getOrElse(Vector.empty))
+    cards         <- page.cards.unsome.map(_.getOrElse(Vector.empty))
     dcs           <- ZIO.collect(cards)(_.toDynCard)
     gain20Clicks  <- gain20.clicks
     upgradeClicks <- upgrade.clicks
@@ -109,7 +109,7 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
     run   = buildBulkMachines(obb).provideCustomLayer(layer)
     _             <- run
     _             <- run.when(runTwice)
-    cards         <- page.cards.optional.map(_.getOrElse(Vector.empty))
+    cards         <- page.cards.unsome.map(_.getOrElse(Vector.empty))
     dcs           <- ZIO.collect(cards)(_.toDynCard)
     gain20Clicks  <- gain20.clicks
     upgradeClicks <- upgrade.clicks
@@ -118,7 +118,7 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
 
   final val spec = suite("Build All Machines")(
     suite("should work without max on machines")(
-      testM("with try not to buy true") {
+      test("with try not to buy true") {
         noMax(BuildMachinesOpts(true)).map { case (m1Count, m2Count, m3Count, m4Count) =>
           assert(m1Count)(equalTo(1)) &&
             assert(m2Count)(equalTo(1)) &&
@@ -126,7 +126,7 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
             assert(m4Count)(equalTo(1))
         }
       },
-      testM("with try not to buy false") {
+      test("with try not to buy false") {
         noMax(BuildMachinesOpts(false)).map { case (m1Count, m2Count, m3Count, m4Count) =>
           assert(m1Count)(equalTo(1)) &&
             assert(m2Count)(equalTo(1)) &&
@@ -134,7 +134,7 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
             assert(m4Count)(equalTo(1))
         }
       },
-      testM("with a filter") {
+      test("with a filter") {
         noMax(BuildMachinesOpts(true, Set("Machine1", "Machine3", "Machine4"))).map {
           case (m1Count, m2Count, m3Count, m4Count) =>
             assert(m1Count)(equalTo(1)) &&
@@ -145,7 +145,7 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
       },
     ),
     suite("should work with max on machines")(
-      testM("with try not to buy true") {
+      test("with try not to buy true") {
         max(BuildMachinesOpts(true)).map(dcs =>
           assert(dcs)(
             equalTo(
@@ -159,7 +159,7 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
           )
         )
       },
-      testM("with try not to buy false") {
+      test("with try not to buy false") {
         max(BuildMachinesOpts(false)).map(dcs =>
           assert(dcs)(
             equalTo(
@@ -173,7 +173,7 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
           )
         )
       },
-      testM("with a filter") {
+      test("with a filter") {
         max(BuildMachinesOpts(true, Set("Explorer", "Penta-Drill"))).map(dcs =>
           assert(dcs)(
             equalTo(
@@ -189,7 +189,7 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
       },
     ),
     suite("buy free items")(
-      testM("should work") {
+      test("should work") {
         testBuildFree().map { case (gain20Clicks, upgradeClicks, dcs, notifs) =>
           assert(gain20Clicks)(equalTo(0)) &&
             assert(upgradeClicks)(equalTo(0)) &&
@@ -209,7 +209,7 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
             )
         }
       } @@ silent,
-      testM("should work when run again") {
+      test("should work when run again") {
         testBuildFree(true).map { case (gain20Clicks, upgradeClicks, dcs, notifs) =>
           assert(gain20Clicks)(equalTo(0)) &&
             assert(upgradeClicks)(equalTo(0)) &&
@@ -232,7 +232,7 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
       } @@ silent,
     ),
     suite("bulk buy items")(
-      testM("should work") {
+      test("should work") {
         testBulkBuyMachines().map { case (gain20Clicks, upgradeClicks, dcs, notifs) =>
           assert(gain20Clicks)(equalTo(0)) &&
             assert(upgradeClicks)(equalTo(0)) &&
@@ -253,7 +253,7 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
             )
         }
       } @@ silent,
-      testM("should work when run again") {
+      test("should work when run again") {
         testBulkBuyMachines(true).map { case (gain20Clicks, upgradeClicks, dcs, notifs) =>
           assert(gain20Clicks)(equalTo(0)) &&
             assert(upgradeClicks)(equalTo(0)) &&

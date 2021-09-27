@@ -36,7 +36,7 @@ object EffectZIO {
   type RTask[+A] = ZIO[ZEnv, Throwable, A]
 
   implicit object asynczio extends Async.WithDefaults[RTask] {
-    @inline override def delay[A](a: => A): RTask[A] = ZIO.effect(a)
+    @inline override def delay[A](a: => A): RTask[A] = ZIO.attempt(a)
 
     @inline override def pure[A](a: A): RTask[A] = ZIO.succeed(a)
 
@@ -55,7 +55,7 @@ object EffectZIO {
       }
 
     override def async[A](fa: Async.Untyped[A]): RTask[A] =
-      ZIO.effectAsync(callback => fa(ta => () => callback(ZIO.fromTry(ta))))
+      ZIO.async(callback => fa(ta => () => callback(ZIO.fromTry(ta))))
 
     override def async_(onCompletion: Sync.Untyped[Unit] => Sync.Untyped[Unit]): RTask[Unit] =
       for {
@@ -65,9 +65,9 @@ object EffectZIO {
       } yield {}
 
     override def runAsync[A](fa: => RTask[A]): Async.Untyped[A] =
-      f => () => Runtime.default.unsafeRunAsync(fa)(ea => f(ea.toEither.toTry)())
+      f => () => Runtime.default.unsafeRunAsyncWith(fa)(ea => f(ea.toEither.toTry)())
 
-    override def dispatch[A](fa: RTask[A]): Unit = Runtime.default.unsafeRunAsync_(fa)
+    override def dispatch[A](fa: RTask[A]): Unit = Runtime.default.unsafeRunAsync(fa)
   }
 
   private lazy val tryUnit = Try(())

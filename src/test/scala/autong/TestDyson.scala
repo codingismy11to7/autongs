@@ -180,54 +180,54 @@ object TestDyson extends DefaultRunnableSpec {
 
   final val spec = suite("Dyson Automation")(
     suite("should buy the right things")(
-      testM("when done and only ring unlocked") {
+      test("when done and only ring unlocked") {
         runWork(opts(), ringOnly = true).map(assert(_)(equalTo(ClickCounts())))
       },
-      testM("when not done and only ring unlocked") {
+      test("when not done and only ring unlocked") {
         runWork(opts(), ringOnly = true, ringCount = 4).map(assert(_)(equalTo(ClickCounts(eq50PlusRing = 1))))
       },
-      testM("when not done and only ring unlocked and auto-dyson disabled") {
+      test("when not done and only ring unlocked and auto-dyson disabled") {
         runWork(opts(autoDyson = false), ringOnly = true, ringCount = 4).map(assert(_)(equalTo(ClickCounts())))
       },
-      testM("when done and not buying swarms after sphere") {
+      test("when done and not buying swarms after sphere") {
         runWork(opts()).map(assert(_)(equalTo(ClickCounts())))
       },
-      testM("when done and buying swarms after sphere") {
+      test("when done and buying swarms after sphere") {
         runWork(opts(buySwarmsAfterSphere = true)).map(assert(_)(equalTo(ClickCounts(eq100PlusSwarm = 1))))
       },
-      testM("when done and buying swarms after sphere and auto-dyson disabled") {
+      test("when done and buying swarms after sphere and auto-dyson disabled") {
         runWork(opts(buySwarmsAfterSphere = true, autoDyson = false)).map(assert(_)(equalTo(ClickCounts())))
       },
-      testM("when sphere unpurchased and not auto-purchasing") {
+      test("when sphere unpurchased and not auto-purchasing") {
         runWork(opts(), spherePurchased = false).map(assert(_)(equalTo(ClickCounts(eq250 = 1))))
       },
-      testM("when sphere unpurchased and not auto-purchasing and auto-dyson disabled") {
+      test("when sphere unpurchased and not auto-purchasing and auto-dyson disabled") {
         runWork(opts(autoDyson = false), spherePurchased = false).map(assert(_)(equalTo(ClickCounts())))
       },
-      testM("when sphere unpurchased and auto-purchasing") {
+      test("when sphere unpurchased and auto-purchasing") {
         runWork(opts(autoBuySphere = true), spherePurchased = false)
           .map(assert(_)(equalTo(ClickCounts(eq250PlusSphere = 1))))
       },
-      testM("when sphere unpurchased and auto-purchasing and auto-dyson disabled") {
+      test("when sphere unpurchased and auto-purchasing and auto-dyson disabled") {
         runWork(opts(autoBuySphere = true, autoDyson = false), spherePurchased = false)
           .map(assert(_)(equalTo(ClickCounts())))
       },
-      testM("when not done with rings or swarms or sphere") {
+      test("when not done with rings or swarms or sphere") {
         runWork(opts(), ringCount = 1, swarmCount = 0, spherePurchased = false).map(
           assert(_)(equalTo(ClickCounts(eq50PlusRing = 1)))
         )
       },
-      testM("when not done with rings or swarms or sphere and auto-dyson disabled") {
+      test("when not done with rings or swarms or sphere and auto-dyson disabled") {
         runWork(opts(autoDyson = false), ringCount = 1, swarmCount = 0, spherePurchased = false).map(
           assert(_)(equalTo(ClickCounts()))
         )
       },
-      testM("when not done with swarms or sphere") {
+      test("when not done with swarms or sphere") {
         runWork(opts(), swarmCount = 1, spherePurchased = false).map(
           assert(_)(equalTo(ClickCounts(eq100PlusSwarm = 1)))
         )
       },
-      testM("when not done with swarms or sphere and auto-dyson disabled") {
+      test("when not done with swarms or sphere and auto-dyson disabled") {
         runWork(opts(autoDyson = false), swarmCount = 1, spherePurchased = false).map(
           assert(_)(equalTo(ClickCounts()))
         )
