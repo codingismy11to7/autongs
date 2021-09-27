@@ -17,7 +17,7 @@ import zio._
 
 import scala.scalajs.js
 
-object AutoNGMain extends ZIOAppDefault {
+object AutoNGMain extends ZIOApp {
 
   private[autong] case class RetVal(lastScienceTime: Option[Long] = None)
 
@@ -311,7 +311,11 @@ object AutoNGMain extends ZIOAppDefault {
     ret <- bootstrapUi(cont)
   } yield ret
 
-  private val layers = Storage.live ++ UIInterface.live
+  override type Environment = ZEnv with Has[Storage] with Has[UIInterface]
 
-  override def run: ZIO[ZEnv with Has[ZIOAppArgs], Any, Any] = program.provideCustomLayer(layers)
+  implicit override def tag: Tag[Environment] = Tag[Environment]
+
+  override val layer: ZLayer[Has[ZIOAppArgs], Any, Environment] = ZEnv.live ++ Storage.live ++ UIInterface.live
+
+  override val run: ZIO[Environment with Has[ZIOAppArgs], Any, Any] = program
 }
