@@ -1,13 +1,27 @@
 package autong.ui
 
-import autong.AutoNG.{OptionsListener, StartListener}
 import autong.{AutoNG, Options, RequiredOptions}
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.feature.Context
 import japgolly.scalajs.react.hooks.CustomHook
 import org.scalajs.dom
+import zio.{Dequeue, UManaged}
 
 object ControllerContext {
+
+  private def createSyncListener[T](subscribe: UManaged[Dequeue[T]])(onItem: (T) => RTask[Unit]) = {
+    val startListening = for {
+      q <- subscribe
+      _ <- q.take.flatMap(onItem).forever.toManaged_
+    } yield {}
+
+    val listFiberZ = startListening.useForever.forkDaemon
+
+    RPure(zio.Runtime.default.unsafeRunTask(listFiberZ)).map { frt =>
+      RPure(zio.Runtime.default.unsafeRunAsync_(frt.interrupt))
+    }
+  }
+
   val ctx: Context[AutoNG] = React.createContext(null)
 
   val controller: CustomHook[Unit, AutoNG] = CustomHook[Unit].useContext(ctx).buildReturning((_, c) => c)
@@ -16,8 +30,7 @@ object ControllerContext {
     .custom(controller)
     .useState(false)
     .useEffectWithDepsBy((_, controller, _) => controller) { (_, _, started) => controller =>
-      val list: StartListener = v => started.setState(v)
-      controller.addStartListener(list).as(controller.removeStartListener(list))
+      createSyncListener(controller.subscribeToStarted)(v => started.setState(v))
     }
     .buildReturning((_, _, started) => started.value)
 
@@ -25,8 +38,7 @@ object ControllerContext {
     .custom(controller)
     .useState(Options.default)
     .useEffectWithDepsBy((_, controller, _) => controller) { (_, _, options) => controller =>
-      val list: OptionsListener = o => options.setState(o)
-      controller.addOptionsListener(list).as(controller.removeOptionsListener(list))
+      createSyncListener(controller.subscribeToOptions)(o => options.setState(o))
     }
     .buildReturning((_, _, options) => options.value)
 
@@ -37,7 +49,7 @@ object ControllerContext {
     .useCallbackBy((_, _, notif, _) => notif.setState(None))
     .useEffectWithDepsBy((_, controller, _, notifFunc, _) => controller -> notifFunc) { (_, _, _, _, _) =>
       { case (controller, notifFunc) =>
-        controller.addNotifListener(notifFunc).as(controller.removeNotifListener(notifFunc))
+        createSyncListener(controller.subscribeToNotifs)(s => notifFunc(s))
       }
     }
     .buildReturning((_, _, notif, _, markAsRead) => notif.value -> markAsRead)

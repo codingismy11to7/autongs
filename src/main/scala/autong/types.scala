@@ -1,16 +1,14 @@
 package autong
 
-import autong.AutoNG.{NotifListener, OptionsListener, StartListener}
+import autong.AutoNG.Started
 import japgolly.scalajs.react._
 import zio.prelude.{Equal, EqualOps}
+import zio.{Dequeue, UManaged}
 
 import scala.scalajs.js
 
 object AutoNG {
-  type Started         = Boolean
-  type StartListener   = (Started) => RPure[Unit]
-  type OptionsListener = (RequiredOptions) => RPure[Unit]
-  type NotifListener   = (String) => RPure[Unit]
+  type Started = Boolean
 
   implicit val r: Reusability[AutoNG] = Reusability.byRef
 }
@@ -28,14 +26,9 @@ trait AutoNG {
 
   def sendNotification(notif: String): RTask[Unit]
 
-  def addStartListener(listener: StartListener): RPure[Unit]
-  def removeStartListener(listener: StartListener): RPure[Unit]
-
-  def addOptionsListener(listener: OptionsListener): RPure[Unit]
-  def removeOptionsListener(listener: OptionsListener): RPure[Unit]
-
-  def addNotifListener(listener: NotifListener): RPure[Unit]
-  def removeNotifListener(listener: NotifListener): RPure[Unit]
+  def subscribeToStarted: UManaged[Dequeue[Started]]
+  def subscribeToOptions: UManaged[Dequeue[RequiredOptions]]
+  def subscribeToNotifs: UManaged[Dequeue[String]]
 }
 
 trait RunningState extends js.Object {
