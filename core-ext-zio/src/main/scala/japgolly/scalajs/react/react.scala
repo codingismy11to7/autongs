@@ -1,9 +1,9 @@
 package japgolly.scalajs
 
 import japgolly.scalajs.react.util.EffectZIO
+import zio.ZIO
 import zio.prelude.Equal
 import zio.prelude.fx.ZPure
-import zio.{ZEnv, ZIO}
 
 import scala.scalajs.js
 
@@ -22,17 +22,6 @@ package object react extends japgolly.scalajs.react.internal.Core with japgolly.
     (js.isUndefined(a) && js.isUndefined(b)) || a.fold(false)(a => b.fold(false)(b => a === b))
   }
 
-  implicit class RichTask[T](val t: RTask[T]) extends AnyVal {
-    def purify: RPure[T] = RPure(zio.Runtime.default.unsafeRunTask(t))
-  }
-
   import scala.language.implicitConversions
   implicit def pure2zio[A](p: RPure[A]): RTask[A] = p.toZIO
-  /*
-
-  implicit def widenpure[R <: ZEnv, E <: Throwable, A](z: ZPure[Nothing, Nothing, Nothing, R, E, A]): RPure[A] =
-    z.asInstanceOf[RPure[A]]
-   */
-
-  implicit def widenzio[R <: ZEnv, E <: Throwable, A](z: ZIO[R, E, A]): RTask[A] = z.asInstanceOf[RTask[A]]
 }

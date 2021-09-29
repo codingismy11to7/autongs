@@ -56,15 +56,15 @@ object Buying {
   type ItemName       = String
   type AmountClicked  = Int
   type ActuallyBought = Int
-  type OnBulkBuy      = (ItemName, AmountClicked, ActuallyBought) => RIO[ZEnv, Unit]
+  type OnBulkBuy[R]   = (ItemName, AmountClicked, ActuallyBought) => RIO[R, Unit]
 
-  private def bulkBuyItems(items: Iterable[BulkBuyInfo], onBuy: OnBulkBuy) =
+  private def bulkBuyItems[R](items: Iterable[BulkBuyInfo], onBuy: OnBulkBuy[R]) =
     ZIO.foreach_(items.filter(_.canBulkBuyWithOneRemaining))(i =>
       onBuy(i.name, i.bbb.buyAmount, i.bbb.buyAmount - i.currentAmount) *> i.bbb.click
     )
 
-  private def bulkBuyMachines(
-      onBulkBuy: OnBulkBuy
+  private def bulkBuyMachines[R](
+      onBulkBuy: OnBulkBuy[R]
   )(furtherFilter: (Card) => IO[Option[Throwable], Any] = _ => IO.unit) =
     currentPageCardsWithBuyButtons.optional.flatMap {
       case None => UIO.unit
@@ -86,9 +86,10 @@ object Buying {
         } yield {}
     }
 
-  def buildBulkMachines(onBulkBuy: OnBulkBuy): RIO[Has[UIInterface] with ZEnv, Unit] = bulkBuyMachines(onBulkBuy)()
+  def buildBulkMachines[R](onBulkBuy: OnBulkBuy[R]): ZIO[R with Has[UIInterface], Throwable, Unit] =
+    bulkBuyMachines(onBulkBuy)()
 
-  def buildFreeItems(onBulkBuy: OnBulkBuy): RIO[Has[UIInterface] with ZEnv, Unit] = {
+  def buildFreeItems[R](onBulkBuy: OnBulkBuy[R]): ZIO[R with Has[UIInterface], Throwable, Unit] = {
     // if any of them start with '-' instead of '+' then they aren't all free
     def allFree(rows: Vector[ProductionRow]) = ZIO.foreach(rows)(_.inputOrOutput).map(_.forall(_ startsWith "+"))
     def onlyAllowAllFree(rows: Vector[ProductionRow]) = allFree(rows).optional.map(_.filter(identity)).some

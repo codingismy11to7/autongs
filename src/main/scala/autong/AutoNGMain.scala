@@ -12,7 +12,7 @@ import autong.UIInterface._
 import japgolly.scalajs.react._
 import zio.ZIO.ifM
 import zio._
-import zio.clock.instant
+import zio.clock.{instant, Clock}
 import zio.duration.durationInt
 
 import scala.scalajs.js
@@ -55,20 +55,22 @@ object AutoNGMain extends zio.App {
     }
 
   private[autong] def doWork(opts: RequiredOptions, lastScienceTime: Long) = {
-    val empty = RTask(Option.empty[RetVal])
+    val empty = ZIO.succeed(Option.empty[RetVal])
 
     val runAutoSciTechIfNeeded = (currPage: Option[String], elapsed: Long, currTime: Long) =>
-      currPage.fold(empty) { currPage =>
-        if (elapsed < opts.autoSciTechInterval) empty
-        else
-          for {
-            _ <- navAndBuildAllScience.when(opts.autoScienceEnabled)
-            _ <- navAndBoostUnlockAllTechs.when(opts.autoTechsEnabled)
-            _ <- navToPage(currPage)
-          } yield Some(RetVal(Some(currTime)))
-      }
+      if (elapsed < opts.autoSciTechInterval) empty
+      else
+        currPage match {
+          case None => empty
+          case Some(currPage) =>
+            for {
+              _ <- navAndBuildAllScience.when(opts.autoScienceEnabled)
+              _ <- navAndBoostUnlockAllTechs.when(opts.autoTechsEnabled)
+              _ <- navToPage(currPage)
+            } yield Some(RetVal(Some(currTime)))
+        }
 
-    val runAutoScienceAndTech: RTask[Option[RetVal]] =
+    val runAutoScienceAndTech: RIO[Clock with Has[UIInterface], Option[RetVal]] =
       if (!(opts.autoScienceEnabled || opts.autoTechsEnabled)) empty
       else
         for {
@@ -114,11 +116,12 @@ object AutoNGMain extends zio.App {
 
         doDyson.optional *> doStorage *> runAutoScienceAndTech
       }, {
-        val onBulkBuy: OnBulkBuy = (in, am, ab) => sendNotification(s"Bought $ab to reach $am on $in")
-        val doEmc                = emcPage(opts.emcOnlyMeteorite).optional.when(opts.autoEmc && opts.emcAllPages)
-        val buyFree              = buildFreeItems(onBulkBuy).when(opts.buyFreeItems).unlessM(currPageIs("Science"))
-        val buyBulk              = buildBulkMachines(onBulkBuy).when(opts.bulkBuyMachines)
-        val doScience            = buildAllScience.whenM(currPageIs("Science") && RPure(opts.autoScienceEnabled))
+        val onBulkBuy: OnBulkBuy[Has[Notifications]] =
+          (in, am, ab) => sendNotification(s"Bought $ab to reach $am on $in")
+        val doEmc     = emcPage(opts.emcOnlyMeteorite).optional.when(opts.autoEmc && opts.emcAllPages)
+        val buyFree   = buildFreeItems(onBulkBuy).when(opts.buyFreeItems).unlessM(currPageIs("Science"))
+        val buyBulk   = buildBulkMachines(onBulkBuy).when(opts.bulkBuyMachines)
+        val doScience = buildAllScience.whenM(currPageIs("Science") && RPure(opts.autoScienceEnabled))
         val doMilitary = ifM(RPure(opts.buyMilitary) && currPageIs("Military"))(
           buildAllMachines(BuildMachinesOpts(false)) *> runAutoScienceAndTech,
           empty,
@@ -166,7 +169,7 @@ object AutoNGMain extends zio.App {
       }
     }
 
-  private def currPageName(f: (String) => RTask[Unit]) =
+  private def currPageName[R, E](f: (String) => ZIO[R, E, Unit]) =
     currentPageName.optional.flatMap {
       case None     => sendNotification("Couldn't find a current page name")
       case Some(pn) => f(pn)
@@ -174,7 +177,7 @@ object AutoNGMain extends zio.App {
 
   private def doEmc(options: js.UndefOr[EMCOptions]) =
     currPageName { pageName =>
-      lazy val runLoop: RTask[Unit] =
+      lazy val runLoop: RIO[ZEnv with Has[UIInterface] with Has[Notifications], Unit] =
         ifM(currPageIs(pageName))(
           emcPage(false).optional *> runLoop,
           sendNotification(s"Stopped Auto-EMCing on $pageName"),
@@ -187,7 +190,7 @@ object AutoNGMain extends zio.App {
   private def doBuyMachines(options: RequiredOptions) =
     (buildOpts: BuildMachinesOpts) =>
       currPageName { pageName =>
-        lazy val runLoop: RTask[Unit] =
+        lazy val runLoop: RIO[ZEnv with Has[UIInterface] with Has[Notifications], Unit] =
           ifM(currPageIs(pageName))(
             buildAllMachines(buildOpts) *> runLoop,
             sendNotification(s"Stopped auto-buying on $pageName"),
@@ -305,16 +308,14 @@ object AutoNGMain extends zio.App {
       hasSt     <- ZIO.environment[Has[Storage]]
       hasUi     <- ZIO.environment[Has[UIInterface]]
       hasNotifs <- ZIO.environment[Has[Notifications]]
-      comb        = ZLayer.succeedMany(hasSt ++ hasUi)
-      st          = ZLayer.succeedMany(hasSt)
-      uiAndNotifs = ZLayer.succeedMany(hasUi ++ hasNotifs)
+      comb = ZLayer.succeedMany(hasSt ++ hasUi ++ hasNotifs)
     } yield new AutoNG {
       override val start: RTask[Unit]                                     = startZ.psl(comb)
-      override val stop: RTask[Unit]                                      = stopZ.psl(st)
-      override def reconfigure(options: js.UndefOr[Options]): RTask[Unit] = reconfigureZ(options).psl(st)
-      override def setOptions(options: Options): RTask[Unit]              = setOptionsZ(options).psl(st)
-      override def emc: (js.UndefOr[EMCOptions]) => RTask[Unit]           = o => startEmc(o).psl(uiAndNotifs)
-      override def buyMachines: (BuildMachinesOpts) => RTask[Unit]        = o => buyMachinesZ(o).psl(uiAndNotifs)
+      override val stop: RTask[Unit]                                      = stopZ.psl(comb)
+      override def reconfigure(options: js.UndefOr[Options]): RTask[Unit] = reconfigureZ(options).psl(comb)
+      override def setOptions(options: Options): RTask[Unit]              = setOptionsZ(options).psl(comb)
+      override def emc: (js.UndefOr[EMCOptions]) => RTask[Unit]           = o => startEmc(o).psl(comb)
+      override def buyMachines: (BuildMachinesOpts) => RTask[Unit]        = o => buyMachinesZ(o).psl(comb)
       override def sendNotification(notif: String): RTask[Unit]           = notifs.sendNotif(notif)
       override val subscribeToStarted: UManaged[Dequeue[Started]] =
         startedHub.subscribe <* fireStartListeners.toManaged_
