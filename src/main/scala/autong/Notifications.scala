@@ -1,14 +1,14 @@
 package autong
 
-import zio.{Has, RIO, Task, ZIO}
+import zio._
 
 trait Notifications {
-  def send(notification: String): Task[Unit]
+  def send(notification: String): UIO[Unit]
 }
 
 object Notifications {
 
-  def sendNotification(notif: String): RIO[Has[Notifications], Unit] =
-    ZIO.serviceWith[Notifications](n => n.send(notif))
+  def sendNotification(notif: String): URIO[Has[Notifications], Unit] =
+    ZIO.serviceWith[Notifications](_.send(notif))
 
 }

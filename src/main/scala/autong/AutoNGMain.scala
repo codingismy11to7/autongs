@@ -241,7 +241,7 @@ object AutoNGMain extends zio.App {
 
   private case class Notifs(stateRef: Ref[ANGState], notifsHub: Hub[String]) {
 
-    val sendNotif: (String) => RIO[ZEnv, Unit] = notif => notifsHub.publish(notif).unit
+    val sendNotif: (String) => URIO[ZEnv, Unit] = notif => notifsHub.publish(notif).unit
 
     val notifLayer: ZLayer[ZEnv, Nothing, Has[Notifications]] =
       ZLayer.fromFunctionM(env => ZIO.succeed((notif: String) => sendNotif(notif).provide(env)))

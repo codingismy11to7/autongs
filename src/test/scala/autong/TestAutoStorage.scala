@@ -19,7 +19,7 @@ object TestAutoStorage extends DefaultRunnableSpec {
       gemEntry   = TestSideNavEntry(TestSideNavButton("Gem", "5M", "6M"), gemUpgrade)
       woodEntry  = TestSideNavEntry(TestSideNavButton("Wood", "5M", "6M"), woodUpgrade)
       sideNavs   = Vector(rescsEntry, oilEntry, metalEntry, gemEntry, woodEntry)
-      layers     = TestStorage.default ++ TestUIInterface.create(createPage("Lava"), sideNavs)
+      layers = TestStorage.default ++ TestNotifications.empty ++ TestUIInterface.create(createPage("Lava"), sideNavs)
       _               <- doWork(Options.setDefaults(opts), 0).provideCustomLayer(layers)
       oilClickCount   <- oilUpgrade.clicks
       metalClickCount <- metalUpgrade.clicks

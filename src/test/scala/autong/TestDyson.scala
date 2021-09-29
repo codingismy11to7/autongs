@@ -158,7 +158,7 @@ object TestDyson extends DefaultRunnableSpec {
   ) = for {
     dysonCards <- createCards(ringCount, swarmCount, spherePurchased, ringOnly)
     page  = createPage("Dyson", dysonCards.cards)
-    layer = create(page)
+    layer = create(page) ++ TestNotifications.empty
     _      <- doWork(Options setDefaults opts, 0).provideCustomLayer(layer)
     counts <- dysonCards.toClickCounts
   } yield counts

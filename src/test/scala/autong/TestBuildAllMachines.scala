@@ -3,7 +3,7 @@ package autong
 import autong.Buying.{buildAllMachines, buildBulkMachines, buildFreeItems, OnBulkBuy}
 import autong.TestUIInterface._
 import zio.ZIO
-import zio.console.putStrLn
+import zio.console.{putStrLn, Console}
 import zio.test.Assertion._
 import zio.test.TestAspect.silent
 import zio.test._
@@ -58,7 +58,7 @@ object TestBuildAllMachines extends DefaultRunnableSpec {
   private def boughtStr(itemName: String, amountClicked: Int, amountBought: Int) =
     s"bought $amountBought with $amountClicked on $itemName"
 
-  private val obb: OnBulkBuy = (in, ac, ab) => putStrLn(boughtStr(in, ac, ab))
+  private val obb: OnBulkBuy[Console] = (in, ac, ab) => putStrLn(boughtStr(in, ac, ab))
 
   private def testBuildFree(runTwice: Boolean = false) = for {
     gain20  <- TestClickCountButton.make("Gain 20")
