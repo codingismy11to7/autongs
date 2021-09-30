@@ -49,9 +49,17 @@ object AutoNGMain extends zio.App {
           st <- storedAndTotal
         } yield st._1 == st._2
 
-        ifM(!ZIO.fromOption(Some(onlyUpgradeWhenFull)) || storedAndEqualSame)(e.upgradeButton, ZIO.fail(None))
+        val buttonAndName = for {
+          upg  <- e.upgradeButton
+          nav  <- e.navButton
+          name <- nav.name
+        } yield upg -> name
+
+        ifM(!ZIO.fromOption(Some(onlyUpgradeWhenFull)) || storedAndEqualSame)(buttonAndName, ZIO.fail(None))
       }
-      btnsToClick >>= (ZIO.foreach_(_)(b => b.click.unlessM(b.disabled)))
+      btnsToClick.flatMap(ZIO.foreach_(_) { case (b, name) =>
+        (b.click *> sendNotification(s"Upgraded $name Storage")).unlessM(b.disabled)
+      })
     }
 
   private[autong] def doWork(opts: RequiredOptions, lastScienceTime: Long) = {
