@@ -65,6 +65,7 @@ trait Options extends js.Object {
   def autoSciTechInterval: js.UndefOr[Int]            = js.undefined
   def buyCommunications: js.UndefOr[Boolean]          = js.undefined
   def buyMilitary: js.UndefOr[Boolean]                = js.undefined
+  def buySpaceship: js.UndefOr[Boolean]               = js.undefined
   def buyFreeItems: js.UndefOr[Boolean]               = js.undefined
   def bulkBuyMachines: js.UndefOr[Boolean]            = js.undefined
 }
@@ -88,6 +89,7 @@ object Options {
     a.autoSciTechInterval === b.autoSciTechInterval &&
     a.buyCommunications === b.buyCommunications &&
     a.buyMilitary === b.buyMilitary &&
+    a.buySpaceship === b.buySpaceship &&
     a.buyFreeItems === b.buyFreeItems &&
     a.bulkBuyMachines === b.bulkBuyMachines
   }
@@ -109,6 +111,7 @@ object Options {
       autoSciTechInterval0: js.UndefOr[Int] = js.undefined,
       buyCommunications0: js.UndefOr[Boolean] = js.undefined,
       buyMilitary0: js.UndefOr[Boolean] = js.undefined,
+      buySpaceship0: js.UndefOr[Boolean] = js.undefined,
       buyFreeItems0: js.UndefOr[Boolean] = js.undefined,
       bulkBuyMachines0: js.UndefOr[Boolean] = js.undefined,
   ): Options = new Options {
@@ -128,6 +131,7 @@ object Options {
     override val autoSciTechInterval: js.UndefOr[Int]            = autoSciTechInterval0
     override val buyCommunications: js.UndefOr[Boolean]          = buyCommunications0
     override val buyMilitary: js.UndefOr[Boolean]                = buyMilitary0
+    override val buySpaceship: js.UndefOr[Started]               = buySpaceship0
     override val buyFreeItems: js.UndefOr[Boolean]               = buyFreeItems0
     override val bulkBuyMachines: js.UndefOr[Boolean]            = bulkBuyMachines0
   }
@@ -151,6 +155,7 @@ object Options {
         autoSciTechInterval: js.UndefOr[Int] = o.autoSciTechInterval,
         buyCommunications: js.UndefOr[Boolean] = o.buyCommunications,
         buyMilitary: js.UndefOr[Boolean] = o.buyMilitary,
+        buySpaceship: js.UndefOr[Boolean] = o.buySpaceship,
         buyFreeItems: js.UndefOr[Boolean] = o.buyFreeItems,
         bulkBuyMachines: js.UndefOr[Boolean] = o.bulkBuyMachines,
     ): Options = Options(
@@ -170,6 +175,7 @@ object Options {
       autoSciTechInterval,
       buyCommunications,
       buyMilitary,
+      buySpaceship,
       buyFreeItems,
       bulkBuyMachines,
     )
@@ -194,6 +200,7 @@ object Options {
       autoSciTechInterval = 60000,
       buyCommunications = false,
       buyMilitary = false,
+      buySpaceship = false,
       buyFreeItems = true,
       bulkBuyMachines = false,
     )
@@ -217,6 +224,7 @@ object Options {
         o.autoSciTechInterval.getOrElse(default.autoSciTechInterval),
         o.buyCommunications.getOrElse(default.buyCommunications),
         o.buyMilitary.getOrElse(default.buyMilitary),
+        o.buySpaceship.getOrElse(default.buySpaceship),
         o.buyFreeItems.getOrElse(default.buyFreeItems),
         o.bulkBuyMachines.getOrElse(default.bulkBuyMachines),
       )
@@ -246,6 +254,7 @@ case class RequiredOptions(
     autoSciTechInterval: Int,
     buyCommunications: Boolean,
     buyMilitary: Boolean,
+    buySpaceship: Boolean,
     buyFreeItems: Boolean,
     bulkBuyMachines: Boolean,
 ) {
@@ -267,6 +276,7 @@ case class RequiredOptions(
     n.autoSciTechInterval getOrElse autoSciTechInterval,
     n.buyCommunications getOrElse buyCommunications,
     n.buyMilitary getOrElse buyMilitary,
+    n.buySpaceship getOrElse buySpaceship,
     n.buyFreeItems getOrElse buyFreeItems,
     n.bulkBuyMachines getOrElse bulkBuyMachines,
   )
@@ -288,6 +298,7 @@ case class RequiredOptions(
     autoSciTechInterval,
     buyCommunications,
     buyMilitary,
+    buySpaceship,
     buyFreeItems,
     bulkBuyMachines,
   )

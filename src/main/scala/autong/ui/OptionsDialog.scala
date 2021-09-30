@@ -205,6 +205,14 @@ object OptionsDialog {
                   x => _.copy(buyCommunications = x),
                 )
               ),
+            MuiTooltip[RTask](title = "Buys Spaceship & spaceship parts")
+              .apply(
+                divSwitchCtrl(
+                  "Buy Spaceship",
+                  currOptions.value.buySpaceship getOrElse savedOptions.buySpaceship,
+                  x => _.copy(buySpaceship = x),
+                )
+              ),
             MuiTooltip[RTask](title = "Buys military ships as soon as they're available for purchase").apply(
               divSwitchCtrl(
                 "Buy Military",

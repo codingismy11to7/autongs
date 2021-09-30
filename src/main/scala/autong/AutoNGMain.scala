@@ -147,12 +147,17 @@ object AutoNGMain extends zio.App {
         val buyFree   = buildFreeItems(onBulkBuy).when(opts.buyFreeItems).unlessM(currPageIs("Science"))
         val buyBulk   = buildBulkMachines(onBulkBuy).when(opts.bulkBuyMachines)
         val doScience = buildAllScience.whenM(currPageIs("Science") && RPure(opts.autoScienceEnabled))
-        val doMilitary = ifM(RPure(opts.buyMilitary) && currPageIs("Military"))(
+        val doMilitary = ifM(ZIO.succeed(opts.buyMilitary) && currPageIs("Military"))(
           buildAllMachines(BuildMachinesOpts(false)) *> runAutoScienceAndTech,
           empty,
         )
+        val doSpaceship = (retVal: Option[RetVal]) =>
+          ifM(ZIO.succeed(opts.buySpaceship) && currPageIs("Spaceship"))(
+            buildAllMachines(BuildMachinesOpts(false)) *> runAutoScienceAndTech,
+            ZIO.succeed(retVal),
+          )
         val doComms = (retVal: Option[RetVal]) =>
-          ifM(RPure(opts.buyCommunications) && currPageIs("Communication"))(
+          ifM(ZIO.succeed(opts.buyCommunications) && currPageIs("Communication"))(
             currentPageCards.optional.flatMap {
               case None => ZIO.unit
 
@@ -172,10 +177,10 @@ object AutoNGMain extends zio.App {
                   _ <- b.fold[Task[Unit]](ZIO.unit)(_.click)
                 } yield {}
             } *> runAutoScienceAndTech,
-            RPure(retVal),
+            ZIO.succeed(retVal),
           )
 
-        doStorage *> doEmc *> buyFree *> buyBulk *> doScience *> (doMilitary >>= doComms)
+        doStorage *> doEmc *> buyFree *> buyBulk *> doScience *> (doMilitary >>= doSpaceship >>= doComms)
       },
     )
 
