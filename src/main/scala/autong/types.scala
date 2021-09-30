@@ -57,6 +57,7 @@ trait Options extends js.Object {
   def autoEmc: js.UndefOr[Boolean]                    = js.undefined
   def emcOnlyMeteorite: js.UndefOr[Boolean]           = js.undefined
   def emcAllPages: js.UndefOr[Boolean]                = js.undefined
+  def emcOnlyWhenFull: js.UndefOr[Boolean]            = js.undefined
   def storageEnabled: js.UndefOr[Boolean]             = js.undefined
   def onlyUpgradeStorageWhenFull: js.UndefOr[Boolean] = js.undefined
   def autoScienceEnabled: js.UndefOr[Boolean]         = js.undefined
@@ -79,6 +80,7 @@ object Options {
     a.autoEmc === b.autoEmc &&
     a.emcOnlyMeteorite === b.emcOnlyMeteorite &&
     a.emcAllPages === b.emcAllPages &&
+    a.emcOnlyWhenFull === b.emcOnlyWhenFull &&
     a.storageEnabled === b.storageEnabled &&
     a.onlyUpgradeStorageWhenFull === b.onlyUpgradeStorageWhenFull &&
     a.autoScienceEnabled === b.autoScienceEnabled &&
@@ -99,6 +101,7 @@ object Options {
       autoEmc0: js.UndefOr[Boolean] = js.undefined,
       emcOnlyMeteorite0: js.UndefOr[Boolean] = js.undefined,
       emcAllPages0: js.UndefOr[Boolean] = js.undefined,
+      emcOnlyWhenFull0: js.UndefOr[Boolean] = js.undefined,
       storageEnabled0: js.UndefOr[Boolean] = js.undefined,
       onlyUpgradeStorageWhenFull0: js.UndefOr[Boolean] = js.undefined,
       autoScienceEnabled0: js.UndefOr[Boolean] = js.undefined,
@@ -117,6 +120,7 @@ object Options {
     override val autoEmc: js.UndefOr[Boolean]                    = autoEmc0
     override val emcOnlyMeteorite: js.UndefOr[Boolean]           = emcOnlyMeteorite0
     override val emcAllPages: js.UndefOr[Boolean]                = emcAllPages0
+    override val emcOnlyWhenFull: js.UndefOr[Started]            = emcOnlyWhenFull0
     override val storageEnabled: js.UndefOr[Boolean]             = storageEnabled0
     override val onlyUpgradeStorageWhenFull: js.UndefOr[Boolean] = onlyUpgradeStorageWhenFull0
     override val autoScienceEnabled: js.UndefOr[Boolean]         = autoScienceEnabled0
@@ -139,6 +143,7 @@ object Options {
         autoEmc: js.UndefOr[Boolean] = o.autoEmc,
         emcOnlyMeteorite: js.UndefOr[Boolean] = o.emcOnlyMeteorite,
         emcAllPages: js.UndefOr[Boolean] = o.emcAllPages,
+        emcOnlyWhenFull: js.UndefOr[Boolean] = o.emcOnlyWhenFull,
         storageEnabled: js.UndefOr[Boolean] = o.storageEnabled,
         onlyUpgradeStorageWhenFull: js.UndefOr[Boolean] = o.onlyUpgradeStorageWhenFull,
         autoScienceEnabled: js.UndefOr[Boolean] = o.autoScienceEnabled,
@@ -157,6 +162,7 @@ object Options {
       autoEmc,
       emcOnlyMeteorite,
       emcAllPages,
+      emcOnlyWhenFull,
       storageEnabled,
       onlyUpgradeStorageWhenFull,
       autoScienceEnabled,
@@ -180,6 +186,7 @@ object Options {
       autoEmc = false,
       emcOnlyMeteorite = false,
       emcAllPages = false,
+      emcOnlyWhenFull = true,
       storageEnabled = true,
       onlyUpgradeStorageWhenFull = true,
       autoScienceEnabled = true,
@@ -202,6 +209,7 @@ object Options {
         o.autoEmc.getOrElse(default.autoEmc),
         o.emcOnlyMeteorite.getOrElse(default.emcOnlyMeteorite),
         o.emcAllPages.getOrElse(default.emcAllPages),
+        o.emcOnlyWhenFull.getOrElse(default.emcOnlyWhenFull),
         o.storageEnabled.getOrElse(default.storageEnabled),
         o.onlyUpgradeStorageWhenFull.getOrElse(default.onlyUpgradeStorageWhenFull),
         o.autoScienceEnabled.getOrElse(default.autoScienceEnabled),
@@ -230,6 +238,7 @@ case class RequiredOptions(
     autoEmc: Boolean,
     emcOnlyMeteorite: Boolean,
     emcAllPages: Boolean,
+    emcOnlyWhenFull: Boolean,
     storageEnabled: Boolean,
     onlyUpgradeStorageWhenFull: Boolean,
     autoScienceEnabled: Boolean,
@@ -250,6 +259,7 @@ case class RequiredOptions(
     n.autoEmc getOrElse autoEmc,
     n.emcOnlyMeteorite getOrElse emcOnlyMeteorite,
     n.emcAllPages getOrElse emcAllPages,
+    n.emcOnlyWhenFull getOrElse emcOnlyWhenFull,
     n.storageEnabled getOrElse storageEnabled,
     n.onlyUpgradeStorageWhenFull getOrElse onlyUpgradeStorageWhenFull,
     n.autoScienceEnabled getOrElse autoScienceEnabled,
@@ -270,6 +280,7 @@ case class RequiredOptions(
     autoEmc,
     emcOnlyMeteorite,
     emcAllPages,
+    emcOnlyWhenFull,
     storageEnabled,
     onlyUpgradeStorageWhenFull,
     autoScienceEnabled,

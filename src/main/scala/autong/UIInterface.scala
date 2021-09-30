@@ -21,6 +21,12 @@ object UIInterface {
     def amountStored: IO[Option[Throwable], String]
     def totalStorage: IO[Option[Throwable], String]
 
+    lazy val isFull: IO[Option[Throwable], Boolean] =
+      for {
+        st <- amountStored
+        to <- totalStorage
+      } yield st == to
+
     def click: Task[Unit]
   }
 

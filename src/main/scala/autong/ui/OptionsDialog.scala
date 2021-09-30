@@ -100,15 +100,14 @@ object OptionsDialog {
         ).apply(
           MuiDialogContent()(
             <.div(
-              MuiTooltip[RTask](title =
-                "Automatically click EMC shortcuts on Dyson Segments. Must have shortcut enabled on EMC page."
-              ).apply(
-                switchCtrl(
-                  "Auto-EMC",
-                  currOptions.value.autoEmc getOrElse savedOptions.autoEmc,
-                  x => _.copy(autoEmc = x),
-                )
-              ),
+              MuiTooltip[RTask](title = "Automatically click EMC shortcuts. Must have shortcut enabled on EMC page.")
+                .apply(
+                  switchCtrl(
+                    "Auto-EMC",
+                    currOptions.value.autoEmc getOrElse savedOptions.autoEmc,
+                    x => _.copy(autoEmc = x),
+                  )
+                ),
               MuiFormControlLabel[RTask](
                 label = "Only Meteorite?": VdomNode,
                 control = MuiCheckbox(color = MuiCheckbox.Color.primary)(
@@ -129,7 +128,21 @@ object OptionsDialog {
                   ).rawElement,
                 )
               ),
+              MuiTooltip[RTask](title = "Only click EMC shortcut when plasma/batteries full (for meteorite/other)")
+                .apply(
+                  MuiFormControlLabel[RTask](
+                    label = "When Full?": VdomNode,
+                    control = MuiCheckbox(color = MuiCheckbox.Color.primary)(
+                      ^.disabled := !(currOptions.value.autoEmc getOrElse savedOptions.autoEmc),
+                      ^.checked := (currOptions.value.emcOnlyWhenFull getOrElse true),
+                      ^.onChange ==> ((e: ReactEventFromInput) =>
+                        setCurrOptions(_.copy(emcOnlyWhenFull = e.target.checked))
+                      ),
+                    ).rawElement,
+                  )
+                ),
             ),
+            MuiDivider()(),
             MuiTooltip[RTask](title = "Build this many Dyson Rings before starting to build Swarms").apply(
               MuiTextField(label = "Ring Count": VdomNode, fullWidth = true)(
                 ^.value := currOptions.value.ringCount,

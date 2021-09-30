@@ -34,20 +34,36 @@ object AutoNGMain extends zio.App {
   private val clickRing  = clickBuy("= 50 + Ring")
   private val clickSwarm = clickBuy("= 100 + Swarm")
 
-  private def clickEMC(onlyMeteorite: Boolean) = (card: Card) => {
+  private def clickEMCButtonIfWanted(emcOnlyWhenFull: Boolean)(row: CostRow) = {
+    val doClick = row.emcButton.flatMap(_.click.asSomeError)
+
+    if (!emcOnlyWhenFull) doClick
+    else {
+      val nav = row.rowName.flatMap {
+        case "Meteorite" => findSideNav("Plasma")
+        case _           => findSideNav("Batteries")
+      }
+      val isFull = for {
+        n      <- nav
+        nb     <- n.navButton
+        isFull <- nb.isFull
+      } yield isFull
+
+      doClick.whenM(isFull)
+    }
+  }
+
+  private def clickEMC(onlyMeteorite: Boolean, emcOnlyWhenFull: Boolean)(card: Card) = {
     val rows =
       if (onlyMeteorite) card.costRows.flatMap(ZIO.filter(_)(_.rowName.map(_ == "Meteorite"))) else card.costRows
 
-    rows.flatMap(ZIO.foreach_(_)(_.emcButton.flatMap(_.click.asSomeError).optional.asSomeError))
+    rows.flatMap(ZIO.foreach_(_)(r => clickEMCButtonIfWanted(emcOnlyWhenFull)(r).optional.asSomeError))
   }
 
   private def upgradeStorage(onlyUpgradeWhenFull: Boolean) =
     sideNavEntries.flatMap { es =>
       val btnsToClick = ZIO.collect(es) { e =>
-        val storedAndTotal = e.navButton.flatMap(n => n.amountStored &&& n.totalStorage)
-        val storedAndEqualSame = for {
-          st <- storedAndTotal
-        } yield st._1 == st._2
+        val isFull = e.navButton.flatMap(_.isFull)
 
         val buttonAndName = for {
           upg  <- e.upgradeButton
@@ -55,7 +71,7 @@ object AutoNGMain extends zio.App {
           name <- nav.name
         } yield upg -> name
 
-        ifM(!ZIO.fromOption(Some(onlyUpgradeWhenFull)) || storedAndEqualSame)(buttonAndName, ZIO.fail(None))
+        ifM(!ZIO.fromOption(Some(onlyUpgradeWhenFull)) || isFull)(buttonAndName, ZIO.fail(None))
       }
       btnsToClick.flatMap(ZIO.foreach_(_) { case (b, name) =>
         (b.click *> sendNotification(s"Upgraded $name Storage")).unlessM(b.disabled)
@@ -97,7 +113,8 @@ object AutoNGMain extends zio.App {
             .map(cards => List(cards.headOption, cards.lift(1), cards.lift(2), cards.lift(3)).map(ZIO.fromOption(_)))
             .flatMap {
               case segment :: ring :: swarm :: sphere :: Nil =>
-                val doEMC = segment.flatMap(clickEMC(opts.emcOnlyMeteorite)).optional.when(opts.autoEmc)
+                val doEMC =
+                  segment.flatMap(clickEMC(opts.emcOnlyMeteorite, opts.emcOnlyWhenFull)).optional.when(opts.autoEmc)
 
                 val sphereBuyButtons = sphere.flatMap(_.buyButtons)
 
@@ -126,7 +143,7 @@ object AutoNGMain extends zio.App {
       }, {
         val onBulkBuy: OnBulkBuy[Has[Notifications]] =
           (in, am, ab) => sendNotification(s"Bought $ab to reach $am on $in")
-        val doEmc     = emcPage(opts.emcOnlyMeteorite).optional.when(opts.autoEmc && opts.emcAllPages)
+        val doEmc = emcPage(opts.emcOnlyMeteorite, opts.emcOnlyWhenFull).optional.when(opts.autoEmc && opts.emcAllPages)
         val buyFree   = buildFreeItems(onBulkBuy).when(opts.buyFreeItems).unlessM(currPageIs("Science"))
         val buyBulk   = buildBulkMachines(onBulkBuy).when(opts.bulkBuyMachines)
         val doScience = buildAllScience.whenM(currPageIs("Science") && RPure(opts.autoScienceEnabled))
@@ -164,17 +181,9 @@ object AutoNGMain extends zio.App {
 
   }
 
-  private def emcPage(onlyMeteorite: Boolean) =
+  private def emcPage(onlyMeteorite: Boolean, onlyWhenFull: Boolean) =
     currentPageCards.map(_.reverse).flatMap { cards =>
-      ZIO.foreach_(cards) { card =>
-        val rows =
-          if (onlyMeteorite) card.costRows.flatMap(ZIO.filter(_)(r => r.rowName.map(_ == "Meteorite")))
-          else card.costRows
-
-        val emcButtons = rows.flatMap(ZIO.collect(_)(_.emcButton).asSomeError)
-
-        emcButtons.flatMap(ZIO.foreach_(_)(_.click.asSomeError))
-      }
+      ZIO.foreach_(cards)(card => clickEMC(onlyMeteorite, onlyWhenFull)(card).optional.asSomeError)
     }
 
   private def currPageName[R, E](f: (String) => ZIO[R, E, Unit]) =
@@ -187,7 +196,7 @@ object AutoNGMain extends zio.App {
     currPageName { pageName =>
       lazy val runLoop: RIO[ZEnv with Has[UIInterface] with Has[Notifications], Unit] =
         ifM(currPageIs(pageName))(
-          emcPage(false).optional *> runLoop,
+          emcPage(onlyMeteorite = false, onlyWhenFull = false).optional *> runLoop,
           sendNotification(s"Stopped Auto-EMCing on $pageName"),
         )
           .delay(options.flatMap(_.taskInterval).getOrElse(5000).millis)
