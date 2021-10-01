@@ -21,7 +21,6 @@ trait AutoNG {
 
   def setOptions(options: Options): RTask[Unit]
 
-  def emc: (js.UndefOr[EMCOptions]) => RTask[Unit]
   def buyMachines: (BuildMachinesOpts) => RTask[Unit]
 
   def sendNotification(notif: String): RTask[Unit]
@@ -317,8 +316,6 @@ case class RequiredOptions(
   def toJson: String = js.JSON.stringify(toOptions)
 
 }
-
-case class EMCOptions(taskInterval: js.UndefOr[Int] = js.undefined)
 
 case class BuildMachinesOpts(
     leaveUnbuilt: js.UndefOr[Boolean] = js.undefined,

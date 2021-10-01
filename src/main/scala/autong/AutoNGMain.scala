@@ -198,18 +198,6 @@ object AutoNGMain extends zio.App {
       case Some(pn) => f(pn)
     }
 
-  private def doEmc(options: js.UndefOr[EMCOptions]) =
-    currPageName { pageName =>
-      lazy val runLoop: RIO[ZEnv with Has[UIInterface] with Has[Notifications], Unit] =
-        ifM(currPageIs(pageName))(
-          emcPage(onlyMeteorite = false, onlyWhenFull = false).optional *> runLoop,
-          sendNotification(s"Stopped Auto-EMCing on $pageName"),
-        )
-          .delay(options.flatMap(_.taskInterval).getOrElse(5000).millis)
-
-      sendNotification(s"Auto-EMCing while on $pageName") *> runLoop.forkDaemon.as {}
-    }
-
   private def doBuyMachines(options: RequiredOptions) =
     (buildOpts: BuildMachinesOpts) =>
       currPageName { pageName =>
@@ -324,7 +312,6 @@ object AutoNGMain extends zio.App {
     val setOptionsZ = (opts: Options) =>
       stateRef.update(s => s.copy(options = s.options.combineWith(opts))) *> saveOptions *> fireOptionListeners
 
-    val startEmc     = (o: js.UndefOr[EMCOptions]) => doEmc(o).forkDaemon.unit
     val buyMachinesZ = (o: BuildMachinesOpts) => currOptsZ >>= (doBuyMachines(_)(o).forkDaemon.unit)
 
     val createANG = for {
@@ -337,7 +324,6 @@ object AutoNGMain extends zio.App {
       override val stop: RTask[Unit]                                      = stopZ.psl(comb)
       override def reconfigure(options: js.UndefOr[Options]): RTask[Unit] = reconfigureZ(options).psl(comb)
       override def setOptions(options: Options): RTask[Unit]              = setOptionsZ(options).psl(comb)
-      override def emc: (js.UndefOr[EMCOptions]) => RTask[Unit]           = o => startEmc(o).psl(comb)
       override def buyMachines: (BuildMachinesOpts) => RTask[Unit]        = o => buyMachinesZ(o).psl(comb)
       override def sendNotification(notif: String): RTask[Unit]           = notifs.sendNotif(notif)
       override val subscribeToStarted: UManaged[Dequeue[Started]] =

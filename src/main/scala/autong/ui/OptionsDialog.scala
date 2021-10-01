@@ -37,8 +37,6 @@ object OptionsDialog {
     .render { (props, controller, started, savedOptions, currOptions, sendNotif, currNotif, machinesDlgOpen) =>
       val handleClose = RT *> currOptions.setState(None) *> props.onSetOpen(false)
 
-      val emcCurrent = controller.emc(EMCOptions(taskInterval = 1000)) *> handleClose
-
       val onBuyMachinesOpen   = RT *> machinesDlgOpen.setState(true) *> handleClose
       val onBuyMachinesCancel = RT *> machinesDlgOpen.setState(false) *> props.onSetOpen(true)
       val buyMachines = (opts: BuildMachinesOpts) => controller.buyMachines(opts) *> machinesDlgOpen.setState(false)
@@ -247,8 +245,6 @@ object OptionsDialog {
               ^.onClick --> startStopClicked(controller, started),
               s"${if (started) "Stop" else "Start"}",
             ),
-            MuiTooltip[RTask](title = "Click all the EMC buttons on this page, until you switch pages")
-              .apply(MuiButton()(^.onClick --> emcCurrent, "Auto-EMC")),
             MuiButton()(^.onClick --> onBuyMachinesOpen, "Buy Machines"),
             MuiButton()(
               ^.disabled := savedOptions.toOptions === currOptions.value,
