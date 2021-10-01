@@ -63,6 +63,7 @@ trait Options extends js.Object {
   def autoScienceEnabled: js.UndefOr[Boolean]         = js.undefined
   def autoTechsEnabled: js.UndefOr[Boolean]           = js.undefined
   def autoSciTechInterval: js.UndefOr[Int]            = js.undefined
+  def buyAntimatter: js.UndefOr[Boolean]              = js.undefined
   def buyCommunications: js.UndefOr[Boolean]          = js.undefined
   def buyMilitary: js.UndefOr[Boolean]                = js.undefined
   def buySpaceship: js.UndefOr[Boolean]               = js.undefined
@@ -87,6 +88,7 @@ object Options {
     a.autoScienceEnabled === b.autoScienceEnabled &&
     a.autoTechsEnabled === b.autoTechsEnabled &&
     a.autoSciTechInterval === b.autoSciTechInterval &&
+    a.buyAntimatter === b.buyAntimatter &&
     a.buyCommunications === b.buyCommunications &&
     a.buyMilitary === b.buyMilitary &&
     a.buySpaceship === b.buySpaceship &&
@@ -109,6 +111,7 @@ object Options {
       autoScienceEnabled0: js.UndefOr[Boolean] = js.undefined,
       autoTechsEnabled0: js.UndefOr[Boolean] = js.undefined,
       autoSciTechInterval0: js.UndefOr[Int] = js.undefined,
+      buyAntimatter0: js.UndefOr[Boolean] = js.undefined,
       buyCommunications0: js.UndefOr[Boolean] = js.undefined,
       buyMilitary0: js.UndefOr[Boolean] = js.undefined,
       buySpaceship0: js.UndefOr[Boolean] = js.undefined,
@@ -129,6 +132,7 @@ object Options {
     override val autoScienceEnabled: js.UndefOr[Boolean]         = autoScienceEnabled0
     override val autoTechsEnabled: js.UndefOr[Boolean]           = autoTechsEnabled0
     override val autoSciTechInterval: js.UndefOr[Int]            = autoSciTechInterval0
+    override val buyAntimatter: js.UndefOr[Started]              = buyAntimatter0
     override val buyCommunications: js.UndefOr[Boolean]          = buyCommunications0
     override val buyMilitary: js.UndefOr[Boolean]                = buyMilitary0
     override val buySpaceship: js.UndefOr[Started]               = buySpaceship0
@@ -153,6 +157,7 @@ object Options {
         autoScienceEnabled: js.UndefOr[Boolean] = o.autoScienceEnabled,
         autoTechsEnabled: js.UndefOr[Boolean] = o.autoTechsEnabled,
         autoSciTechInterval: js.UndefOr[Int] = o.autoSciTechInterval,
+        buyAntimatter: js.UndefOr[Boolean] = o.buyAntimatter,
         buyCommunications: js.UndefOr[Boolean] = o.buyCommunications,
         buyMilitary: js.UndefOr[Boolean] = o.buyMilitary,
         buySpaceship: js.UndefOr[Boolean] = o.buySpaceship,
@@ -173,6 +178,7 @@ object Options {
       autoScienceEnabled,
       autoTechsEnabled,
       autoSciTechInterval,
+      buyAntimatter,
       buyCommunications,
       buyMilitary,
       buySpaceship,
@@ -198,6 +204,7 @@ object Options {
       autoScienceEnabled = true,
       autoTechsEnabled = true,
       autoSciTechInterval = 60000,
+      buyAntimatter = false,
       buyCommunications = false,
       buyMilitary = false,
       buySpaceship = false,
@@ -222,6 +229,7 @@ object Options {
         o.autoScienceEnabled.getOrElse(default.autoScienceEnabled),
         o.autoTechsEnabled.getOrElse(default.autoTechsEnabled),
         o.autoSciTechInterval.getOrElse(default.autoSciTechInterval),
+        o.buyAntimatter.getOrElse(default.buyAntimatter),
         o.buyCommunications.getOrElse(default.buyCommunications),
         o.buyMilitary.getOrElse(default.buyMilitary),
         o.buySpaceship.getOrElse(default.buySpaceship),
@@ -252,6 +260,7 @@ case class RequiredOptions(
     autoScienceEnabled: Boolean,
     autoTechsEnabled: Boolean,
     autoSciTechInterval: Int,
+    buyAntimatter: Boolean,
     buyCommunications: Boolean,
     buyMilitary: Boolean,
     buySpaceship: Boolean,
@@ -274,6 +283,7 @@ case class RequiredOptions(
     n.autoScienceEnabled getOrElse autoScienceEnabled,
     n.autoTechsEnabled getOrElse autoTechsEnabled,
     n.autoSciTechInterval getOrElse autoSciTechInterval,
+    n.buyAntimatter getOrElse buyAntimatter,
     n.buyCommunications getOrElse buyCommunications,
     n.buyMilitary getOrElse buyMilitary,
     n.buySpaceship getOrElse buySpaceship,
@@ -296,6 +306,7 @@ case class RequiredOptions(
     autoScienceEnabled,
     autoTechsEnabled,
     autoSciTechInterval,
+    buyAntimatter,
     buyCommunications,
     buyMilitary,
     buySpaceship,

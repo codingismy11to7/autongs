@@ -213,6 +213,14 @@ object OptionsDialog {
                   x => _.copy(buySpaceship = x),
                 )
               ),
+            MuiTooltip[RTask](title = "Builds Alcubierre Drives when on Antimatter page")
+              .apply(
+                divSwitchCtrl(
+                  "Buy Antimatter",
+                  currOptions.value.buyAntimatter getOrElse savedOptions.buyAntimatter,
+                  x => _.copy(buyAntimatter = x),
+                )
+              ),
             MuiTooltip[RTask](title = "Buys military ships as soon as they're available for purchase").apply(
               divSwitchCtrl(
                 "Buy Military",

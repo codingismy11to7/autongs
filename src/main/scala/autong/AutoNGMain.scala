@@ -141,22 +141,23 @@ object AutoNGMain extends zio.App {
 
         doDyson.optional *> doStorage *> runAutoScienceAndTech
       }, {
-        val onBulkBuy: OnBulkBuy[Has[Notifications]] =
-          (in, am, ab) => sendNotification(s"Bought $ab to reach $am on $in")
-        val doEmc = emcPage(opts.emcOnlyMeteorite, opts.emcOnlyWhenFull).optional.when(opts.autoEmc && opts.emcAllPages)
-        val buyFree   = buildFreeItems(onBulkBuy).when(opts.buyFreeItems).unlessM(currPageIs("Science"))
-        val buyBulk   = buildBulkMachines(onBulkBuy).when(opts.bulkBuyMachines)
-        val doScience = buildAllScience.whenM(currPageIs("Science") && RPure(opts.autoScienceEnabled))
-        val doMilitary = ifM(ZIO.succeed(opts.buyMilitary) && currPageIs("Military"))(
-          buildAllMachines(BuildMachinesOpts(false)) *> runAutoScienceAndTech,
-          empty,
-        )
-        val doSpaceship = (retVal: Option[RetVal]) =>
-          ifM(ZIO.succeed(opts.buySpaceship) && currPageIs("Spaceship"))(
+        def buildAllMachinesFor(pageName: String, when: Boolean) = (retVal: Option[RetVal]) =>
+          ifM(ZIO.succeed(when) && currPageIs(pageName))(
             buildAllMachines(BuildMachinesOpts(false)) *> runAutoScienceAndTech,
             ZIO.succeed(retVal),
           )
-        val doComms = (retVal: Option[RetVal]) =>
+
+        val onBulkBuy: OnBulkBuy[Has[Notifications]] =
+          (in, am, ab) => sendNotification(s"Bought $ab to reach $am on $in")
+        val doEmc = emcPage(opts.emcOnlyMeteorite, opts.emcOnlyWhenFull).optional.when(opts.autoEmc && opts.emcAllPages)
+        val buyFree      = buildFreeItems(onBulkBuy).when(opts.buyFreeItems).unlessM(currPageIs("Science"))
+        val buyBulk      = buildBulkMachines(onBulkBuy).when(opts.bulkBuyMachines)
+        val doScience    = buildAllScience.whenM(currPageIs("Science") && RPure(opts.autoScienceEnabled))
+        val doAntimatter = buildAllMachinesFor("Antimatter", opts.buyAntimatter)
+        val doMilitary   = buildAllMachinesFor("Military", opts.buyMilitary)
+        val doSpaceship  = buildAllMachinesFor("Spaceship", opts.buySpaceship)
+
+        val doComms =
           ifM(ZIO.succeed(opts.buyCommunications) && currPageIs("Communication"))(
             currentPageCards.optional.flatMap {
               case None => ZIO.unit
@@ -177,10 +178,10 @@ object AutoNGMain extends zio.App {
                   _ <- b.fold[Task[Unit]](ZIO.unit)(_.click)
                 } yield {}
             } *> runAutoScienceAndTech,
-            ZIO.succeed(retVal),
+            empty,
           )
 
-        doStorage *> doEmc *> buyFree *> buyBulk *> doScience *> (doMilitary >>= doSpaceship >>= doComms)
+        doStorage *> doEmc *> buyFree *> buyBulk *> doScience *> (doComms >>= doMilitary >>= doSpaceship >>= doAntimatter)
       },
     )
 
