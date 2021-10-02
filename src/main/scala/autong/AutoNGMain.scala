@@ -105,6 +105,7 @@ object AutoNGMain extends zio.App {
         } yield r
 
     val doStorage = upgradeStorage(opts.onlyUpgradeStorageWhenFull).when(opts.storageEnabled)
+    val doEMC     = emcPage(opts.emcOnlyMeteorite, opts.emcOnlyWhenFull).optional.when(opts.autoEmc)
 
     ifM(currPageIs("Dyson"))(
       {
@@ -113,9 +114,6 @@ object AutoNGMain extends zio.App {
             .map(cards => List(cards.headOption, cards.lift(1), cards.lift(2), cards.lift(3)).map(ZIO.fromOption(_)))
             .flatMap {
               case segment :: ring :: swarm :: sphere :: Nil =>
-                val doEMC =
-                  segment.flatMap(clickEMC(opts.emcOnlyMeteorite, opts.emcOnlyWhenFull)).optional.when(opts.autoEmc)
-
                 val sphereBuyButtons = sphere.flatMap(_.buyButtons)
 
                 // if we have a sphere card but it has no buy buttons, we've bought it already
@@ -149,7 +147,6 @@ object AutoNGMain extends zio.App {
 
         val onBulkBuy: OnBulkBuy[Has[Notifications]] =
           (in, am, ab) => sendNotification(s"Bought $ab to reach $am on $in")
-        val doEmc = emcPage(opts.emcOnlyMeteorite, opts.emcOnlyWhenFull).optional.when(opts.autoEmc && opts.emcAllPages)
         val buyFree      = buildFreeItems(onBulkBuy).when(opts.buyFreeItems).unlessM(currPageIs("Science"))
         val buyBulk      = buildBulkMachines(onBulkBuy).when(opts.bulkBuyMachines)
         val doScience    = buildAllScience.whenM(currPageIs("Science") && RPure(opts.autoScienceEnabled))
@@ -181,7 +178,7 @@ object AutoNGMain extends zio.App {
             empty,
           )
 
-        doStorage *> doEmc *> buyFree *> buyBulk *> doScience *> (doComms >>= doMilitary >>= doSpaceship >>= doAntimatter)
+        doStorage *> doEMC *> buyFree *> buyBulk *> doScience *> (doComms >>= doMilitary >>= doSpaceship >>= doAntimatter)
       },
     )
 

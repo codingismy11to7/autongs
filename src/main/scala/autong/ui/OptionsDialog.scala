@@ -116,16 +116,6 @@ object OptionsDialog {
                   ),
                 ).rawElement,
               ),
-              MuiTooltip[RTask](title = "Instead of Auto-EMCing only on Dyson Segments, do it on every page.").apply(
-                MuiFormControlLabel[RTask](
-                  label = "All Pages?": VdomNode,
-                  control = MuiCheckbox(color = MuiCheckbox.Color.primary)(
-                    ^.disabled := !(currOptions.value.autoEmc getOrElse savedOptions.autoEmc),
-                    ^.checked := (currOptions.value.emcAllPages getOrElse false),
-                    ^.onChange ==> ((e: ReactEventFromInput) => setCurrOptions(_.copy(emcAllPages = e.target.checked))),
-                  ).rawElement,
-                )
-              ),
               MuiTooltip[RTask](title = "Only click EMC shortcut when plasma/batteries full (for meteorite/other)")
                 .apply(
                   MuiFormControlLabel[RTask](
