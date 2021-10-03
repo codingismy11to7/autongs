@@ -48,6 +48,7 @@ object RunningState {
 }
 
 trait Options extends js.Object {
+  def autoDyson: js.UndefOr[Boolean]                  = js.undefined
   def ringCount: js.UndefOr[Int]                      = js.undefined
   def swarmCount: js.UndefOr[Int]                     = js.undefined
   def autoBuySphere: js.UndefOr[Boolean]              = js.undefined
@@ -72,6 +73,7 @@ trait Options extends js.Object {
 object Options {
 
   implicit val eq: Equal[Options] = Equal.make { (a, b) =>
+    a.autoDyson === b.autoDyson &&
     a.ringCount === b.ringCount &&
     a.swarmCount === b.swarmCount &&
     a.autoBuySphere === b.autoBuySphere &&
@@ -94,6 +96,7 @@ object Options {
   }
 
   def apply(
+      autoDyson0: js.UndefOr[Boolean] = js.undefined,
       ringCount0: js.UndefOr[Int] = js.undefined,
       swarmCount0: js.UndefOr[Int] = js.undefined,
       autoBuySphere0: js.UndefOr[Boolean] = js.undefined,
@@ -114,6 +117,7 @@ object Options {
       buyFreeItems0: js.UndefOr[Boolean] = js.undefined,
       bulkBuyMachines0: js.UndefOr[Boolean] = js.undefined,
   ): Options = new Options {
+    override val autoDyson: js.UndefOr[Boolean]                  = autoDyson0
     override val ringCount: js.UndefOr[Int]                      = ringCount0
     override val swarmCount: js.UndefOr[Int]                     = swarmCount0
     override val autoBuySphere: js.UndefOr[Boolean]              = autoBuySphere0
@@ -138,6 +142,7 @@ object Options {
   implicit class RichOptions(val o: Options) extends AnyVal {
 
     def copy(
+        autoDyson: js.UndefOr[Boolean] = o.autoDyson,
         ringCount: js.UndefOr[Int] = o.ringCount,
         swarmCount: js.UndefOr[Int] = o.swarmCount,
         autoBuySphere: js.UndefOr[Boolean] = o.autoBuySphere,
@@ -158,6 +163,7 @@ object Options {
         buyFreeItems: js.UndefOr[Boolean] = o.buyFreeItems,
         bulkBuyMachines: js.UndefOr[Boolean] = o.bulkBuyMachines,
     ): Options = Options(
+      autoDyson,
       ringCount,
       swarmCount,
       autoBuySphere,
@@ -183,6 +189,7 @@ object Options {
 
   final val default =
     RequiredOptions(
+      autoDyson = true,
       ringCount = 5,
       swarmCount = 6,
       autoBuySphere = false,
@@ -207,6 +214,7 @@ object Options {
   def setDefaults(opts: js.UndefOr[Options]): RequiredOptions =
     opts.fold(default)(o =>
       RequiredOptions(
+        o.autoDyson.getOrElse(default.autoDyson),
         o.ringCount.getOrElse(default.ringCount),
         o.swarmCount.getOrElse(default.swarmCount),
         o.autoBuySphere.getOrElse(default.autoBuySphere),
@@ -237,6 +245,7 @@ object RequiredOptions {
 }
 
 case class RequiredOptions(
+    autoDyson: Boolean,
     ringCount: Int,
     swarmCount: Int,
     autoBuySphere: Boolean,
@@ -259,6 +268,7 @@ case class RequiredOptions(
 ) {
 
   def combineWith(n: Options): RequiredOptions = RequiredOptions(
+    n.autoDyson getOrElse autoDyson,
     n.ringCount getOrElse ringCount,
     n.swarmCount getOrElse swarmCount,
     n.autoBuySphere getOrElse autoBuySphere,
@@ -281,6 +291,7 @@ case class RequiredOptions(
   )
 
   def toOptions: Options = Options(
+    autoDyson,
     ringCount,
     swarmCount,
     autoBuySphere,

@@ -3,6 +3,7 @@ package autong
 import autong.AutoNG.Started
 import autong.Bootstrap.bootstrapUi
 import autong.Buying.{buildAllMachines, buildBulkMachines, buildFreeItems, OnBulkBuy}
+import autong.Dyson.buildDyson
 import autong.Nav.navToPage
 import autong.Notifications.sendNotification
 import autong.Science.{buildAllScience, navAndBuildAllScience}
@@ -22,17 +23,6 @@ object AutoNGMain extends zio.App {
   private[autong] case class RetVal(lastScienceTime: Option[Long] = None)
 
   private def currPageIs(name: String) = currentPageName.optional.map(_ contains name)
-
-  private def clickBuy(name: String) = (card: Card) =>
-    for {
-      b <- card.buyButton(name)
-      _ <- b.click.asSomeError
-    } yield {}
-
-  private val click250   = clickBuy("= 250")
-  private val buySphere  = clickBuy("= 250 + Sphere")
-  private val clickRing  = clickBuy("= 50 + Ring")
-  private val clickSwarm = clickBuy("= 100 + Swarm")
 
   private def clickEMCButtonIfWanted(emcOnlyWhenFull: Boolean)(row: CostRow) = {
     val doClick = row.emcButton.flatMap(_.click.asSomeError)
@@ -107,81 +97,54 @@ object AutoNGMain extends zio.App {
     val doStorage = upgradeStorage(opts.onlyUpgradeStorageWhenFull).when(opts.storageEnabled)
     val doEMC     = emcPage(opts.emcOnlyMeteorite, opts.emcOnlyWhenFull).optional.when(opts.autoEmc)
 
-    ifM(currPageIs("Dyson"))(
-      {
-        val doDyson =
-          currentPageCards
-            .map(cards => List(cards.headOption, cards.lift(1), cards.lift(2), cards.lift(3)).map(ZIO.fromOption(_)))
-            .flatMap {
-              case segment :: ring :: swarm :: sphere :: Nil =>
-                val sphereBuyButtons = sphere.flatMap(_.buyButtons)
+    def buildAllMachinesFor(pageName: String, when: Boolean) = (retVal: Option[RetVal]) =>
+      ifM(ZIO.succeed(when) && currPageIs(pageName))(
+        buildAllMachines(BuildMachinesOpts(false)) *> runAutoScienceAndTech,
+        ZIO.succeed(retVal),
+      )
 
-                // if we have a sphere card but it has no buy buttons, we've bought it already
-                val spherePurchased =
-                  sphere.optional.map(_.isDefined) && sphereBuyButtons.optional.map(_.forall(_.isEmpty))
+    val isSciencePage = currPageIs("Science")
+    val isDysonPage   = currPageIs("Dyson")
 
-                (doEMC *> ifM((RPure(opts.buySwarmsAfterSphere) && spherePurchased).asSomeError)(
-                  swarm >>= clickSwarm,
-                  ifM(ring.flatMap(_.count).map(_ < opts.ringCount))(
-                    ring >>= clickRing,
-                    ifM(swarm.flatMap(_.count).map(_ < opts.swarmCount))(
-                      swarm >>= clickSwarm,
-                      ifM(ZIO.succeed(opts.autoBuySphere).asSomeError)(
-                        sphere >>= buySphere,
-                        (segment >>= click250).unlessM(spherePurchased.asSomeError),
-                      ),
-                    ),
-                  ),
-                ).optional).asSomeError
+    val onBulkBuy: OnBulkBuy[Has[Notifications]] =
+      (in, am, ab) => sendNotification(s"Bought $ab to reach $am on $in")
+    val buyFree      = buildFreeItems(onBulkBuy).when(opts.buyFreeItems).unlessM(isSciencePage || isDysonPage)
+    val buyBulk      = buildBulkMachines(onBulkBuy).when(opts.bulkBuyMachines).unlessM(isDysonPage)
+    val doScience    = buildAllScience.whenM(isSciencePage && ZIO.succeed(opts.autoScienceEnabled))
+    val doAntimatter = buildAllMachinesFor("Antimatter", opts.buyAntimatter)
+    val doMilitary   = buildAllMachinesFor("Military", opts.buyMilitary)
+    val doSpaceship  = buildAllMachinesFor("Spaceship", opts.buySpaceship)
 
-              case _ => ZIO.unit // compiler doesn't know we always have a list of 4 items
-            }
+    val doComms =
+      ifM(ZIO.succeed(opts.buyCommunications) && currPageIs("Communication"))(
+        currentPageCards.optional.flatMap {
+          case None => ZIO.unit
 
-        doDyson.optional *> doStorage *> runAutoScienceAndTech
-      }, {
-        def buildAllMachinesFor(pageName: String, when: Boolean) = (retVal: Option[RetVal]) =>
-          ifM(ZIO.succeed(when) && currPageIs(pageName))(
-            buildAllMachines(BuildMachinesOpts(false)) *> runAutoScienceAndTech,
-            ZIO.succeed(retVal),
-          )
+          case Some(cards) =>
+            val buyBtn = (name: String) =>
+              (for {
+                cOpt <- ZIOfind(cards)(c => c.name.map(_ == name))
+                c    <- ZIO.fromOption(cOpt)
+                bbs  <- c.buyButtons
+                bb   <- ZIO.fromOption(bbs.lastOption)
+              } yield bb).optional
 
-        val onBulkBuy: OnBulkBuy[Has[Notifications]] =
-          (in, am, ab) => sendNotification(s"Bought $ab to reach $am on $in")
-        val buyFree      = buildFreeItems(onBulkBuy).when(opts.buyFreeItems).unlessM(currPageIs("Science"))
-        val buyBulk      = buildBulkMachines(onBulkBuy).when(opts.bulkBuyMachines)
-        val doScience    = buildAllScience.whenM(currPageIs("Science") && RPure(opts.autoScienceEnabled))
-        val doAntimatter = buildAllMachinesFor("Antimatter", opts.buyAntimatter)
-        val doMilitary   = buildAllMachinesFor("Military", opts.buyMilitary)
-        val doSpaceship  = buildAllMachinesFor("Spaceship", opts.buySpaceship)
+            for {
+              ab  <- buyBtn("Astronomical Breakthrough")
+              irs <- buyBtn("Interstellar Radar Scanner")
+              b = ab orElse irs
+              _ <- b.fold[Task[Unit]](ZIO.unit)(_.click)
+            } yield {}
+        } *> runAutoScienceAndTech,
+        empty,
+      )
 
-        val doComms =
-          ifM(ZIO.succeed(opts.buyCommunications) && currPageIs("Communication"))(
-            currentPageCards.optional.flatMap {
-              case None => ZIO.unit
-
-              case Some(cards) =>
-                val buyBtn = (name: String) =>
-                  (for {
-                    cOpt <- ZIOfind(cards)(c => c.name.map(_ == name))
-                    c    <- ZIO.fromOption(cOpt)
-                    bbs  <- c.buyButtons
-                    bb   <- ZIO.fromOption(bbs.lastOption)
-                  } yield bb).optional
-
-                for {
-                  ab  <- buyBtn("Astronomical Breakthrough")
-                  irs <- buyBtn("Interstellar Radar Scanner")
-                  b = ab orElse irs
-                  _ <- b.fold[Task[Unit]](ZIO.unit)(_.click)
-                } yield {}
-            } *> runAutoScienceAndTech,
-            empty,
-          )
-
-        doStorage *> doEMC *> buyFree *> buyBulk *> doScience *> (doComms >>= doMilitary >>= doSpaceship >>= doAntimatter)
-      },
+    def doDyson(retVal: Option[RetVal]) = ifM(ZIO.succeed(opts.autoDyson) && isDysonPage)(
+      buildDyson(opts).optional *> runAutoScienceAndTech,
+      ZIO succeed retVal,
     )
 
+    doStorage *> doEMC *> buyFree *> buyBulk *> doScience *> (doComms >>= doMilitary >>= doSpaceship >>= doAntimatter >>= doDyson)
   }
 
   private def emcPage(onlyMeteorite: Boolean, onlyWhenFull: Boolean) =

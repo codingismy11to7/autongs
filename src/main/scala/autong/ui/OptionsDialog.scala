@@ -84,6 +84,8 @@ object OptionsDialog {
       val saveOnEnter: js.Function1[dom.KeyboardEvent, Unit] =
         e => implicitly[JsWriter[RTask[Unit]]].toJs(onSave.when(e.key == "Enter"))
 
+      val autoDyson = currOptions.value.autoDyson getOrElse savedOptions.autoDyson
+
       ReactFragment(
         if (machinesDlgOpen.value) BuyMachinesDialog(onBuyMachinesCancel, buyMachines) else ReactFragment(),
         MuiSnackbar[RTask](
@@ -131,14 +133,19 @@ object OptionsDialog {
                 ),
             ),
             MuiDivider()(),
+            MuiTooltip[RTask](title = "Automatically build segments/rings/swarms/spheres").apply(
+              divSwitchCtrl("Auto-Dyson", autoDyson, x => _.copy(autoDyson = x))
+            ),
             MuiTooltip[RTask](title = "Build this many Dyson Rings before starting to build Swarms").apply(
               MuiTextField(label = "Ring Count": VdomNode, fullWidth = true)(
+                ^.disabled := !autoDyson,
                 ^.value := currOptions.value.ringCount,
                 ^.onChange ==> ((e: ReactEventFromInput) => setRingCount(e.target.value)),
               )
             ),
             MuiTooltip[RTask](title = "Build this many Dyson Swarms before starting to build Sphere").apply(
               MuiTextField(label = "Swarm Count": VdomNode, fullWidth = true)(
+                ^.disabled := !autoDyson,
                 ^.value := currOptions.value.swarmCount,
                 ^.onChange ==> ((e: ReactEventFromInput) => setSwarmCount(e.target.value)),
               )
@@ -147,11 +154,13 @@ object OptionsDialog {
               "Automatically buy Sphere",
               currOptions.value.autoBuySphere getOrElse savedOptions.autoBuySphere,
               x => _.copy(autoBuySphere = x),
+              !autoDyson,
             ),
             divSwitchCtrl(
               "Buy Swarms after Sphere",
               currOptions.value.buySwarmsAfterSphere getOrElse savedOptions.buySwarmsAfterSphere,
               x => _.copy(buySwarmsAfterSphere = x),
+              !autoDyson,
             ),
             MuiDivider()(),
             divSwitchCtrl(
