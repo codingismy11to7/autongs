@@ -11,12 +11,14 @@ object Bundle {
          |  "name": "AutoNG",
          |  "manifest_version": 3,
          |  "host_permissions": [
-         |    "https://ngspacecompany.exileng.com/"
+         |    "https://ngspacecompany.freddecgames.com/",
+         |    "https://micro500.github.io/NGSpaceCompany/"
          |  ],
          |  "content_scripts": [
          |    {
          |      "matches": [
-         |        "https://ngspacecompany.exileng.com/"
+         |        "https://ngspacecompany.freddecgames.com/",
+         |        "https://micro500.github.io/NGSpaceCompany/"
          |      ],
          |      "js": [
          |        "autongs.js"
