@@ -209,7 +209,7 @@ object UIInterface {
         queryTextContent("div:nth-child(1) > button > div.row > div:nth-child(2)")(div)
 
       val emcButton: IO[Option[Throwable], Button] =
-        queryBtn("div:nth-child(2) > button.me-3", div).map(LiveButton)
+        queryBtn("div:nth-child(3) > button.me-3", div).map(LiveButton)
 
       val timeRemaining: IO[Option[Throwable], String] = queryTextContent("div:last-child > small > span")(div)
     }
