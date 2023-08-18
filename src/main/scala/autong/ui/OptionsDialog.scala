@@ -86,6 +86,8 @@ object OptionsDialog {
 
       val autoDyson = currOptions.value.autoDyson getOrElse savedOptions.autoDyson
 
+      val openGithub = RT.as(dom.window.open("https://github.com/codingismy11to7/autongs", target = "_blank")).unit
+
       ReactFragment(
         if (machinesDlgOpen.value) BuyMachinesDialog(onBuyMachinesCancel, buyMachines) else ReactFragment(),
         MuiSnackbar[RTask](
@@ -240,6 +242,9 @@ object OptionsDialog {
             ),
           ),
           MuiDialogActions()(
+            <.div(^.flex := "auto")(
+              MuiIconButton()(^.onClick --> openGithub, GitHub())
+            ),
             MuiButton(color = if (started) MuiButton.Color.secondary else MuiButton.Color.primary)(
               ^.onClick --> startStopClicked(controller, started),
               s"${if (started) "Stop" else "Start"}",
