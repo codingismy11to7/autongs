@@ -4,6 +4,9 @@ package ui
 import autong.Utils._
 import autong.ui.ControllerContext._
 import autong.ui.hooks.useStateFromProps
+import autong.ui.icons.{GearWideConnected, GitHub, SkipForward}
+import autong.ui.muifixes.FixedMuiDivider.{Orientation, Variant}
+import autong.ui.muifixes.{FixedMuiButton, FixedMuiDivider}
 import io.kinoplan.scalajs.react.bridge.JsWriter
 import io.kinoplan.scalajs.react.material.ui.core._
 import japgolly.scalajs.react._
@@ -18,7 +21,7 @@ import scala.scalajs.js
 import scala.scalajs.js.JSConverters.JSRichOption
 
 object OptionsDialog {
-  case class Props(open: Boolean, onSetOpen: (Boolean) => RTask[Unit])
+  case class Props(open: Boolean, onSetOpen: (Boolean) => RTask[Unit], onSetBuyMachinesOpen: (Boolean) => RTask[Unit])
 
   private def startStopClicked(controller: AutoNG, started: Boolean) =
     if (started) controller.stop else controller.start
@@ -33,13 +36,10 @@ object OptionsDialog {
     .customBy((_, _, _, savedOptions) => useStateFromProps[Options].apply(Some(savedOptions.toOptions) -> defOpts))
     .custom(sendNotif)
     .custom(currentNotif)
-    .useState(false)
-    .render { (props, controller, started, savedOptions, currOptions, sendNotif, currNotif, machinesDlgOpen) =>
+    .render { (props, controller, started, savedOptions, currOptions, sendNotif, currNotif) =>
       val handleClose = RT *> currOptions.setState(None) *> props.onSetOpen(false)
 
-      val onBuyMachinesOpen   = RT *> machinesDlgOpen.setState(true) *> handleClose
-      val onBuyMachinesCancel = RT *> machinesDlgOpen.setState(false) *> props.onSetOpen(true)
-      val buyMachines = (opts: BuildMachinesOpts) => controller.buyMachines(opts) *> machinesDlgOpen.setState(false)
+      val onBuyMachinesOpen = RT *> props.onSetBuyMachinesOpen(true) *> handleClose
 
       def setCurrOptions(f: (Options) => Options) =
         currOptions.modState(o => Some(f(o.getOrElse(Options()))))
@@ -89,7 +89,6 @@ object OptionsDialog {
       val openGithub = RT.as(dom.window.open("https://github.com/codingismy11to7/autongs", target = "_blank")).unit
 
       ReactFragment(
-        if (machinesDlgOpen.value) BuyMachinesDialog(onBuyMachinesCancel, buyMachines) else ReactFragment(),
         MuiSnackbar[RTask](
           autoHideDuration = 3000,
           open = currentNotif.isDefined,
@@ -256,7 +255,10 @@ object OptionsDialog {
               ^.onClick --> startStopClicked(controller, started),
               s"${if (started) "Stop" else "Start"}",
             ),
-            MuiButton()(^.onClick --> onBuyMachinesOpen, "Buy Machines"),
+            FixedMuiButton(startIcon = GearWideConnected(): VdomNode)(
+              ^.onClick --> onBuyMachinesOpen,
+              "Buy Machines",
+            ),
             MuiButton()(
               ^.disabled := savedOptions.toOptions === currOptions.value,
               ^.onClick --> onSave,
@@ -267,5 +269,10 @@ object OptionsDialog {
       )
     }
 
-  def apply(open: Boolean, onSetOpen: (Boolean) => RTask[Unit]): Unmounted[Props] = Component(Props(open, onSetOpen))
+  def apply(
+      open: Boolean,
+      onSetOpen: (Boolean) => RTask[Unit],
+      onSetBuyMachinesOpen: (Boolean) => RTask[Unit],
+  ): Unmounted[Props] = Component(Props(open, onSetOpen, onSetBuyMachinesOpen))
+
 }
