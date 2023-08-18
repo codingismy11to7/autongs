@@ -308,8 +308,9 @@ object AutoNGMain extends zio.App {
     startedHub <- Hub.sliding[Started](4)
     cont <- createControllerAndStart(sr, optsHub, startedHub, notifs)
       .provideSomeLayer[Has[UIInterface] with Has[Storage] with ZEnv](notifLayer)
-    ret <- bootstrapUi(cont)
-  } yield ret
+    _ <- bootstrapUi(cont)
+    _ <- cont.sendNotification("Loaded AutoNG").delay(50.millis).forkDaemon
+  } yield {}
 
   private val layers = Storage.live ++ UIInterface.live
 

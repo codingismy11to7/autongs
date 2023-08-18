@@ -94,8 +94,15 @@ object OptionsDialog {
           autoHideDuration = 3000,
           open = currentNotif.isDefined,
           onClose = js.defined((_, reason) => markAsRead.unless(reason == "clickaway")),
-          message = currentNotif.map(s => s: VdomNode).getOrElse(""): VdomNode,
-        ).apply(),
+        ).apply(
+          MuiSnackbarContent(
+            action = MuiIconButton()(^.onClick --> props.onSetOpen(true), SkipForward()): VdomNode,
+            message = currentNotif.map(s => s: VdomNode).getOrElse(""): VdomNode,
+          )(
+            ^.color := "#9aa4ab",
+            ^.backgroundColor := "#232a35bf",
+          )
+        ),
         MuiDialog[RTask](
           open = props.open,
           onClose = js.defined((_, _) => handleClose),

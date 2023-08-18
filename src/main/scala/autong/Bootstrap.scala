@@ -30,7 +30,7 @@ object Bootstrap {
         ourDiv.id = mainId
         ourDiv.classList.add("col-auto")
         Option(parent.appendChild(ourDiv)).fold(false) { case d: dom.Element =>
-          AutoNGMenu(controller).renderIntoDOM(d, RT *> putStrLn("Loaded AutoNG[S]"))
+          AutoNGMenu(controller).renderIntoDOM(d)
           true
         }
       }
