@@ -44,8 +44,11 @@ object AutoNGMain extends zio.App {
   }
 
   private def clickEMC(onlyMeteorite: Boolean, emcOnlyWhenFull: Boolean)(card: Card) = {
-    val rows =
-      if (onlyMeteorite) card.costRows.flatMap(ZIO.filter(_)(_.rowName.map(_ == "Meteorite"))) else card.costRows
+    val costRows = card.costRows
+      .flatMap(ZIO.foreach(_)(r => r.timeRemainingSeconds.optional.map(_ -> r).asSomeError))
+      .map(_.sortBy(_._1.getOrElse(0)).map(_._2).reverse)
+
+    val rows = if (onlyMeteorite) costRows.flatMap(ZIO.filter(_)(_.rowName.map(_ == "Meteorite"))) else costRows
 
     rows.flatMap(ZIO.foreach_(_)(r => clickEMCButtonIfWanted(emcOnlyWhenFull)(r).optional.asSomeError))
   }

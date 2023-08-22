@@ -9,6 +9,7 @@ trait UIInterface {
 }
 
 object UIInterface {
+  private val timeRe = """(\d{2}):(\d{2}):(\d{2})""".r
 
   trait Page {
     def pageName: IO[Option[Throwable], String]
@@ -41,6 +42,11 @@ object UIInterface {
 
     def emcButton: IO[Option[Throwable], Button]
     def timeRemaining: IO[Option[Throwable], String]
+
+    def timeRemainingSeconds: IO[Option[Throwable], Int] = timeRemaining.optional
+      .map(_ collect { case timeRe(hr, min, sec) => sec.toInt + (min.toInt * 60) + (hr.toInt * 60 * 60) })
+      .some
+
   }
 
   trait ProductionRow {
