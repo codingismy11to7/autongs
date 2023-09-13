@@ -171,7 +171,7 @@ object AutoNGMain extends zio.App {
           )
             .delay(options.taskInterval.millis)
 
-        sendNotification(s"Auto-buying while on $pageName") *> runLoop.forkDaemon.as {}
+        sendNotification(s"Auto-buying while on $pageName") *> runLoop.forkDaemon.unit
       }
 
   private case class ANGState(

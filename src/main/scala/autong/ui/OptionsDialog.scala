@@ -5,8 +5,7 @@ import autong.Utils._
 import autong.ui.ControllerContext._
 import autong.ui.hooks.useStateFromProps
 import autong.ui.icons.{GearWideConnected, GitHub, SkipForward}
-import autong.ui.muifixes.FixedMuiDivider.{Orientation, Variant}
-import autong.ui.muifixes.{FixedMuiButton, FixedMuiDivider}
+import autong.ui.muifixes.FixedMuiButton
 import io.kinoplan.scalajs.react.bridge.JsWriter
 import io.kinoplan.scalajs.react.material.ui.core._
 import japgolly.scalajs.react._
@@ -141,7 +140,7 @@ object OptionsDialog {
                 ),
             ),
             MuiDivider()(),
-            MuiTooltip[RTask](title = "Automatically build segments/rings/swarms/spheres").apply(
+            MuiTooltip[RTask](title = "Automatically build segments/rings/swarms/spheres, when on Dyson page").apply(
               divSwitchCtrl("Auto-Dyson", autoDyson, x => _.copy(autoDyson = x))
             ),
             MuiTooltip[RTask](title = "Build this many Dyson Rings before starting to build Swarms").apply(
@@ -158,23 +157,32 @@ object OptionsDialog {
                 ^.onChange ==> ((e: ReactEventFromInput) => setSwarmCount(e.target.value)),
               )
             ),
-            divSwitchCtrl(
-              "Automatically buy Sphere",
-              currOptions.value.autoBuySphere getOrElse savedOptions.autoBuySphere,
-              x => _.copy(autoBuySphere = x),
-              !autoDyson,
+            MuiTooltip[RTask](title = "Buy sphere after the specified number of rings and swarms are built").apply(
+              divSwitchCtrl(
+                "Automatically buy Sphere",
+                currOptions.value.autoBuySphere getOrElse savedOptions.autoBuySphere,
+                x => _.copy(autoBuySphere = x),
+                !autoDyson,
+              )
             ),
-            divSwitchCtrl(
-              "Buy Swarms after Sphere",
-              currOptions.value.buySwarmsAfterSphere getOrElse savedOptions.buySwarmsAfterSphere,
-              x => _.copy(buySwarmsAfterSphere = x),
-              !autoDyson,
-            ),
+            MuiTooltip[RTask](title =
+              "Buy swarms if left idle on the Dyson page after Sphere is purchased (to boost Dark Matter)"
+            )
+              .apply(
+                divSwitchCtrl(
+                  "Buy Swarms after Sphere",
+                  currOptions.value.buySwarmsAfterSphere getOrElse savedOptions.buySwarmsAfterSphere,
+                  x => _.copy(buySwarmsAfterSphere = x),
+                  !autoDyson,
+                )
+              ),
             MuiDivider()(),
-            divSwitchCtrl(
-              "Upgrade Storage",
-              currOptions.value.storageEnabled getOrElse savedOptions.storageEnabled,
-              x => _.copy(storageEnabled = x),
+            MuiTooltip[RTask](title = "Upgrades storage when possible AND the resource's storage is full").apply(
+              divSwitchCtrl(
+                "Upgrade Storage",
+                currOptions.value.storageEnabled getOrElse savedOptions.storageEnabled,
+                x => _.copy(storageEnabled = x),
+              )
             ),
             MuiTooltip[RTask](title =
               "Automatically purchase items that don't cost other resources over time, when it gets an achievement"
@@ -195,14 +203,27 @@ object OptionsDialog {
               )
             ),
             MuiDivider()(),
-            divSwitchCtrl("Automatically buy Science", autoScienceEnabled, x => _.copy(autoScienceEnabled = x)),
-            divSwitchCtrl(
-              "Automatically Unlock/Boost Technologies",
-              autoTechsEnabled,
-              x => _.copy(autoTechsEnabled = x),
+            MuiTooltip[RTask](title =
+              "Buys science when on Science page, or switches to the page and buys science" +
+                " at the specified interval when on an idle page (Dyson, Comms, Spaceship, etc)"
+            ).apply(
+              divSwitchCtrl("Automatically buy Science", autoScienceEnabled, x => _.copy(autoScienceEnabled = x))
+            ),
+            MuiTooltip[RTask](title =
+              "Switches to Technologies page and buys any available at the" +
+                " specified interval while on an idle page"
+            ).apply(
+              divSwitchCtrl(
+                "Automatically Unlock/Boost Technologies",
+                autoTechsEnabled,
+                x => _.copy(autoTechsEnabled = x),
+              )
             ),
             MuiDivider()(),
-            MuiTooltip[RTask](title = "Buys the Astronomical Breakthrough, followed by Interstellar Radar Scanners")
+            MuiTooltip[RTask](title =
+              "Buys the Astronomical Breakthrough, followed by Interstellar Radar Scanners," +
+                " when on Communications page"
+            )
               .apply(
                 divSwitchCtrl(
                   "Buy Communications",
@@ -210,7 +231,7 @@ object OptionsDialog {
                   x => _.copy(buyCommunications = x),
                 )
               ),
-            MuiTooltip[RTask](title = "Buys Spaceship & spaceship parts")
+            MuiTooltip[RTask](title = "Buys Spaceship & spaceship parts, when on Spaceship page")
               .apply(
                 divSwitchCtrl(
                   "Buy Spaceship",
@@ -226,7 +247,10 @@ object OptionsDialog {
                   x => _.copy(buyAntimatter = x),
                 )
               ),
-            MuiTooltip[RTask](title = "Buys military ships as soon as they're available for purchase").apply(
+            MuiTooltip[RTask](title =
+              "Buys military ships as soon as they're available for purchase," +
+                " when on the purchase page"
+            ).apply(
               divSwitchCtrl(
                 "Buy Military",
                 currOptions.value.buyMilitary getOrElse savedOptions.buyMilitary,
@@ -234,17 +258,27 @@ object OptionsDialog {
               )
             ),
             MuiDivider()(),
-            MuiTextField(
-              label = "Run Interval (ms)": VdomNode,
-              fullWidth = true,
-              inputProps = js.special.objectLiteral("onFocus" -> selOnFocus, "onKeyUp" -> saveOnEnter),
-            )(
-              ^.value := currOptions.value.taskInterval,
-              ^.onChange ==> ((e: ReactEventFromInput) => setTaskInterval(e.target.value)),
+            MuiTooltip[RTask](title =
+              "How often to try to do all the selected actions. 500 milliseconds (half a second) " +
+                "is a good default, weighing responsiveness vs bogging down the game"
+            ).apply(
+              MuiTextField(
+                label = "Run Interval (ms)": VdomNode,
+                fullWidth = true,
+                inputProps = js.special.objectLiteral("onFocus" -> selOnFocus, "onKeyUp" -> saveOnEnter),
+              )(
+                ^.value := currOptions.value.taskInterval,
+                ^.onChange ==> ((e: ReactEventFromInput) => setTaskInterval(e.target.value)),
+              )
             ),
-            MuiTextField(label = "Auto-Science/Technologies Interval (ms)": VdomNode, fullWidth = true)(
-              ^.value := currOptions.value.autoSciTechInterval,
-              ^.onChange ==> ((e: ReactEventFromInput) => setAutoSciTechInterval(e.target.value)),
+            MuiTooltip[RTask](title =
+              "How often to switch to Science and/or Technologies pages to buy available items, while on an idle page." +
+                " 60,000 milliseconds (every minute) seems to be reasonable."
+            ).apply(
+              MuiTextField(label = "Auto-Science/Technologies Interval (ms)": VdomNode, fullWidth = true)(
+                ^.value := currOptions.value.autoSciTechInterval,
+                ^.onChange ==> ((e: ReactEventFromInput) => setAutoSciTechInterval(e.target.value)),
+              )
             ),
           ),
           MuiDialogActions()(

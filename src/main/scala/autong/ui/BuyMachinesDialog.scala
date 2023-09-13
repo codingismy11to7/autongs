@@ -62,12 +62,15 @@ object BuyMachinesDialog {
         MuiDialogTitle()("Select Machines"),
         MuiDialogContent()(
           <.div(
-            MuiFormControlLabel[RTask](
-              label = "Try to leave unpurchased": VdomNode,
-              control = MuiSwitch(checked = leaveUnbuilt.value)(
-                ^.onChange ==> ((e: ReactEventFromInput) => onLeaveUnbuiltClicked(e.target.checked))
-              ).rawElement,
-            )
+            MuiTooltip[RTask](title = "Leaving unpurchased can help keep storages full for Capital Investment boost")
+              .apply(
+                MuiFormControlLabel[RTask](
+                  label = "Try to leave unpurchased": VdomNode,
+                  control = MuiSwitch(checked = leaveUnbuilt.value)(
+                    ^.onChange ==> ((e: ReactEventFromInput) => onLeaveUnbuiltClicked(e.target.checked))
+                  ).rawElement,
+                )
+              )
           ),
           if (machineList.isEmpty) MuiDialogContentText()("No Machines found")
           else
