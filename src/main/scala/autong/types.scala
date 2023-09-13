@@ -68,6 +68,7 @@ trait Options extends js.Object {
   def buySpaceship: js.UndefOr[Boolean]               = js.undefined
   def buyFreeItems: js.UndefOr[Boolean]               = js.undefined
   def bulkBuyMachines: js.UndefOr[Boolean]            = js.undefined
+  def bulkBuyOnlyWhenRich: js.UndefOr[Boolean]        = js.undefined
 }
 
 object Options {
@@ -92,7 +93,8 @@ object Options {
     a.buyMilitary === b.buyMilitary &&
     a.buySpaceship === b.buySpaceship &&
     a.buyFreeItems === b.buyFreeItems &&
-    a.bulkBuyMachines === b.bulkBuyMachines
+    a.bulkBuyMachines === b.bulkBuyMachines &&
+    a.bulkBuyOnlyWhenRich === b.bulkBuyOnlyWhenRich
   }
 
   def apply(
@@ -116,6 +118,7 @@ object Options {
       buySpaceship0: js.UndefOr[Boolean] = js.undefined,
       buyFreeItems0: js.UndefOr[Boolean] = js.undefined,
       bulkBuyMachines0: js.UndefOr[Boolean] = js.undefined,
+      bulkBuyOnlyWhenRich0: js.UndefOr[Boolean] = js.undefined,
   ): Options = new Options {
     override val autoDyson: js.UndefOr[Boolean]                  = autoDyson0
     override val ringCount: js.UndefOr[Int]                      = ringCount0
@@ -137,6 +140,7 @@ object Options {
     override val buySpaceship: js.UndefOr[Started]               = buySpaceship0
     override val buyFreeItems: js.UndefOr[Boolean]               = buyFreeItems0
     override val bulkBuyMachines: js.UndefOr[Boolean]            = bulkBuyMachines0
+    override val bulkBuyOnlyWhenRich: js.UndefOr[Boolean]        = bulkBuyOnlyWhenRich0
   }
 
   implicit class RichOptions(val o: Options) extends AnyVal {
@@ -162,6 +166,7 @@ object Options {
         buySpaceship: js.UndefOr[Boolean] = o.buySpaceship,
         buyFreeItems: js.UndefOr[Boolean] = o.buyFreeItems,
         bulkBuyMachines: js.UndefOr[Boolean] = o.bulkBuyMachines,
+        bulkBuyOnlyWhenRich: js.UndefOr[Boolean] = o.bulkBuyOnlyWhenRich,
     ): Options = Options(
       autoDyson,
       ringCount,
@@ -183,6 +188,7 @@ object Options {
       buySpaceship,
       buyFreeItems,
       bulkBuyMachines,
+      bulkBuyOnlyWhenRich,
     )
 
   }
@@ -208,7 +214,8 @@ object Options {
       buyMilitary = false,
       buySpaceship = false,
       buyFreeItems = true,
-      bulkBuyMachines = false,
+      bulkBuyMachines = true,
+      bulkBuyOnlyWhenRich = true,
     )
 
   def setDefaults(opts: js.UndefOr[Options]): RequiredOptions =
@@ -234,6 +241,7 @@ object Options {
         o.buySpaceship.getOrElse(default.buySpaceship),
         o.buyFreeItems.getOrElse(default.buyFreeItems),
         o.bulkBuyMachines.getOrElse(default.bulkBuyMachines),
+        o.bulkBuyOnlyWhenRich.getOrElse(default.bulkBuyOnlyWhenRich),
       )
     )
 
@@ -265,6 +273,7 @@ case class RequiredOptions(
     buySpaceship: Boolean,
     buyFreeItems: Boolean,
     bulkBuyMachines: Boolean,
+    bulkBuyOnlyWhenRich: Boolean,
 ) {
 
   def combineWith(n: Options): RequiredOptions = RequiredOptions(
@@ -288,6 +297,7 @@ case class RequiredOptions(
     n.buySpaceship getOrElse buySpaceship,
     n.buyFreeItems getOrElse buyFreeItems,
     n.bulkBuyMachines getOrElse bulkBuyMachines,
+    n.bulkBuyOnlyWhenRich getOrElse bulkBuyOnlyWhenRich,
   )
 
   def toOptions: Options = Options(
@@ -311,6 +321,7 @@ case class RequiredOptions(
     buySpaceship,
     buyFreeItems,
     bulkBuyMachines,
+    bulkBuyOnlyWhenRich,
   )
 
   def toJson: String = js.JSON.stringify(toOptions)

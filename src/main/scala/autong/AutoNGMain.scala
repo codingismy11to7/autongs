@@ -11,6 +11,7 @@ import autong.Storage.{load, store}
 import autong.Technologies.navAndBoostUnlockAllTechs
 import autong.UIInterface._
 import japgolly.scalajs.react._
+import org.scalajs.dom
 import zio.ZIO.ifM
 import zio._
 import zio.clock.{instant, Clock}
@@ -21,6 +22,22 @@ import scala.scalajs.js
 object AutoNGMain extends zio.App {
 
   private[autong] case class RetVal(lastScienceTime: Option[Long] = None)
+
+  private val energyRe = """([+]?)([\d.]+)(.?)""".r
+
+  private val currentEnergyPerSec: RIO[Has[UIInterface], Double] =
+    findSideNav("Energy").flatMap(_.navButton).flatMap(_.amountStored).optional.map {
+      _.flatMap {
+        case energyRe(plus, num, units) =>
+          val value    = Utils.getValueWithUnits(num.toDouble, units)
+          val positive = plus == "+"
+          value.map(v => if (positive) v else 0 - v)
+
+        case _ => None
+      }.getOrElse(0)
+    }
+
+  private def currentEnergyGreaterThan(amt: Long) = currentEnergyPerSec.map(_ > amt)
 
   private def currPageIs(name: String) = currentPageName.optional.map(_ contains name)
 
@@ -111,8 +128,9 @@ object AutoNGMain extends zio.App {
 
     val onBulkBuy: OnBulkBuy[Has[Notifications]] =
       (in, am, ab) => sendNotification(s"Bought $ab to reach $am on $in")
-    val buyFree      = buildFreeItems(onBulkBuy).when(opts.buyFreeItems).unlessM(isSciencePage || isDysonPage)
-    val buyBulk      = buildBulkMachines(onBulkBuy).when(opts.bulkBuyMachines).unlessM(isDysonPage)
+    val buyFree       = buildFreeItems(onBulkBuy).when(opts.buyFreeItems).unlessM(isSciencePage || isDysonPage)
+    val shouldBuyBulk = if (opts.bulkBuyOnlyWhenRich) currentEnergyGreaterThan(2_000_000) else ZIO.succeed(true)
+    val buyBulk      = buildBulkMachines(onBulkBuy).when(opts.bulkBuyMachines).whenM(shouldBuyBulk).unlessM(isDysonPage)
     val doScience    = buildAllScience.whenM(isSciencePage && ZIO.succeed(opts.autoScienceEnabled))
     val doAntimatter = buildAllMachinesFor("Antimatter", opts.buyAntimatter)
     val doMilitary   = buildAllMachinesFor("Military", opts.buyMilitary)

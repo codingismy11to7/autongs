@@ -8,6 +8,7 @@ import autong.ui.icons.{GearWideConnected, GitHub, SkipForward}
 import autong.ui.muifixes.FixedMuiButton
 import io.kinoplan.scalajs.react.bridge.JsWriter
 import io.kinoplan.scalajs.react.material.ui.core._
+import io.kinoplan.scalajs.react.material.ui.core.styles.Theme
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.component.ScalaFn.Unmounted
 import japgolly.scalajs.react.feature.ReactFragment
@@ -18,8 +19,10 @@ import zio.prelude.EqualOps
 
 import scala.scalajs.js
 import scala.scalajs.js.JSConverters.JSRichOption
+import scala.scalajs.js.special.{objectLiteral => obj}
 
 object OptionsDialog {
+
   case class Props(open: Boolean, onSetOpen: (Boolean) => RTask[Unit], onSetBuyMachinesOpen: (Boolean) => RTask[Unit])
 
   private def startStopClicked(controller: AutoNG, started: Boolean) =
@@ -71,8 +74,9 @@ object OptionsDialog {
           checked: Boolean,
           onSet: (Boolean) => (Options) => Options,
           disabled: Boolean = false,
+          divStyle: js.Object = obj(),
       ) =
-        <.div(switchCtrl(label, checked, onSet, disabled))
+        <.div(^.style := divStyle)(switchCtrl(label, checked, onSet, disabled))
 
       val autoScienceEnabled = currOptions.value.autoScienceEnabled getOrElse savedOptions.autoScienceEnabled
       val autoTechsEnabled   = currOptions.value.autoTechsEnabled getOrElse savedOptions.autoTechsEnabled
@@ -86,6 +90,8 @@ object OptionsDialog {
       val autoDyson = currOptions.value.autoDyson getOrElse savedOptions.autoDyson
 
       val openGithub = RT.as(dom.window.open("https://github.com/codingismy11to7/autongs", target = "_blank")).unit
+
+      val bulkBuyMachines = currOptions.value.bulkBuyMachines getOrElse savedOptions.bulkBuyMachines
 
       ReactFragment(
         MuiSnackbar[RTask](
@@ -198,8 +204,17 @@ object OptionsDialog {
             ).apply(
               divSwitchCtrl(
                 "Bulk Buy Machines",
-                currOptions.value.bulkBuyMachines getOrElse savedOptions.bulkBuyMachines,
+                bulkBuyMachines,
                 x => _.copy(bulkBuyMachines = x),
+              )
+            ),
+            MuiTooltip[RTask](title = "Only bulk buy when energy output is greater than 2M/s").apply(
+              divSwitchCtrl(
+                "Only with excess energy",
+                currOptions.value.bulkBuyOnlyWhenRich getOrElse savedOptions.bulkBuyOnlyWhenRich,
+                x => _.copy(bulkBuyOnlyWhenRich = x),
+                !bulkBuyMachines,
+                obj("display" -> (if (bulkBuyMachines) js.undefined else "none"), "paddingLeft" -> 32.px),
               )
             ),
             MuiDivider()(),
