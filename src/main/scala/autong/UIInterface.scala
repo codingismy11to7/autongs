@@ -11,6 +11,23 @@ trait UIInterface {
 object UIInterface {
   private val timeRe = """(\d{2}):(\d{2}):(\d{2})""".r
 
+  private val intRe = """(-?\d+)""".r
+  private val decRe = """(-?\d+(?:\.\d+)?)([kKmMgGtT])""".r
+
+  private val unitMult: PartialFunction[String, BigDecimal] = {
+    case ""  => 1
+    case "k" => 1_000
+    case "m" => 1_000_000
+    case "g" => 1_000_000_000
+    case "t" => BigDecimal(1000) * unitMult("g")
+  }
+
+  private[autong] def parseNumberValue(txt: String): Option[BigDecimal] = txt match {
+    case intRe(d)    => Some(d.toInt)
+    case decRe(d, u) => unitMult.lift(u.toLowerCase).map(m => BigDecimal(d) * m)
+    case _           => None
+  }
+
   trait Page {
     def pageName: IO[Option[Throwable], String]
     def cards: IO[Option[Throwable], Vector[Card]]
@@ -89,9 +106,9 @@ object UIInterface {
 
     def name: IO[Option[Throwable], String]
 
-    def count: IO[Option[Throwable], Int]
+    def count: IO[Option[Throwable], BigDecimal]
 
-    def maxCanBuild: IO[Option[Throwable], Int]
+    def maxCanBuild: IO[Option[Throwable], BigDecimal]
 
     def costRows: IO[Option[Throwable], Vector[CostRow]]
 
@@ -147,8 +164,8 @@ object UIInterface {
     private def queryTextContent(path: String)(from: raw.NodeSelector = dom.document): IO[Option[Throwable], String] =
       ZIO.fromOption(Option(from.querySelector(path)).flatMap(e => e.textContent.toOption))
 
-    private def queryIntContent(path: String)(from: raw.NodeSelector = dom.document) =
-      ZIO.fromOption(Option(from.querySelector(path)).flatMap(e => e.textContent.toOption).flatMap(_.toIntOption))
+    private def queryNumericContent(path: String)(from: raw.NodeSelector = dom.document) =
+      ZIO.fromOption(Option(from.querySelector(path)).flatMap(e => e.textContent.toOption).flatMap(parseNumberValue))
 
     private def queryBtn(path: String, from: raw.NodeSelector = dom.document): IO[Option[Throwable], html.Button] =
       ZIO.fromOption(Option(from.querySelector(path)).toBtn)
@@ -264,8 +281,10 @@ object UIInterface {
         queryTextContent("div.card.card-body > div.row > div > div.row > div > div.row div > span.h6")(div) orElse
           queryTextContent("div.card.card-body > div.row > div.text-truncate > span.h6")(div)
 
-      val count: IO[Option[Throwable], Int] =
-        queryIntContent("div.card > div.row > div.col-12 > div.row > div.col-12 > div.row > div:nth-child(3) > span")(
+      val count: IO[Option[Throwable], BigDecimal] =
+        queryNumericContent(
+          "div.card > div.row > div.col-12 > div.row > div.col-12 > div.row > div:nth-child(3) > span"
+        )(
           div
         )
 
@@ -285,8 +304,8 @@ object UIInterface {
       val productionRows: IO[Option[Throwable], Vector[ProductionRow]] =
         prodDiv >>= getRows(LiveProductionRow)
 
-      val maxCanBuild: IO[Option[Throwable], Int] =
-        costsDiv >>= queryIntContent("div.heading-6 > div.row > div:last-child > span:nth-child(2)")
+      val maxCanBuild: IO[Option[Throwable], BigDecimal] =
+        costsDiv >>= queryNumericContent("div.heading-6 > div.row > div:last-child > span:nth-child(2)")
 
     }
 

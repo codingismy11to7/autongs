@@ -3,11 +3,12 @@ package autong
 import autong.UIInterface._
 import autong.Utils.RichStr
 import zio._
+import zio.test._
 
 import scala.scalajs.js
 import scala.scalajs.js.JSConverters.JSRichOption
 
-object TestUIInterface {
+object TestUIInterface extends DefaultRunnableSpec {
 
   def create(page: Page, sideNavs: Vector[SideNavEntry] = Vector.empty): ULayer[Has[UIInterface]] = ZLayer.succeed {
     new UIInterface {
@@ -106,11 +107,11 @@ object TestUIInterface {
       _costRows: js.UndefOr[Vector[CostRow]] = js.undefined,
       _prodRows: js.UndefOr[Vector[ProductionRow]] = js.undefined,
   ) extends Card {
-    val name: IO[Option[Throwable], String]                          = ZIO.fromOption(_name.toOption)
-    val count: IO[Option[Throwable], Int]                            = ZIO.fromOption(_count.toOption)
-    val sections: Task[Vector[Section]]                              = Task.succeed(_sections)
-    val maxCanBuild: IO[Option[Throwable], Int]                      = ZIO.fromOption(max.toOption)
-    val costRows: IO[Option[Throwable], Vector[CostRow]]             = ZIO.fromOption(_costRows.toOption)
+    val name: IO[Option[Throwable], String]              = ZIO.fromOption(_name.toOption)
+    val count: IO[Option[Throwable], BigDecimal]         = ZIO.fromOption(_count.map(BigDecimal(_)).toOption)
+    val sections: Task[Vector[Section]]                  = Task.succeed(_sections)
+    val maxCanBuild: IO[Option[Throwable], BigDecimal]   = ZIO.fromOption(max.map(BigDecimal(_)).toOption)
+    val costRows: IO[Option[Throwable], Vector[CostRow]] = ZIO.fromOption(_costRows.toOption)
     val productionRows: IO[Option[Throwable], Vector[ProductionRow]] = ZIO.fromOption(_prodRows.toOption)
   }
 
@@ -120,8 +121,8 @@ object TestUIInterface {
       _productionRows: js.UndefOr[Vector[ProductionRow]] = js.undefined,
   ) extends Card {
     val name: IO[Option[Throwable], String]                          = stateRef.map(_.name).get
-    val count: IO[Option[Throwable], Int]                            = stateRef.map(_.count).get
-    val maxCanBuild: IO[Option[Throwable], Int]                      = stateRef.map(_.max).get
+    val count: IO[Option[Throwable], BigDecimal]                     = stateRef.map(_.count).get
+    val maxCanBuild: IO[Option[Throwable], BigDecimal]               = stateRef.map(_.max).get
     val costRows: IO[Option[Throwable], Vector[CostRow]]             = ZIO.fromOption(_costRows.toOption)
     val productionRows: IO[Option[Throwable], Vector[ProductionRow]] = ZIO.fromOption(_productionRows.toOption)
 
@@ -136,7 +137,7 @@ object TestUIInterface {
         .flatMap(count =>
           ZIO.fromOption {
             if (count < num)
-              Some(TestClickActionButton(s"= $num", onClick = clickAction(num - count)))
+              Some(TestClickActionButton(s"= $num", onClick = clickAction(num - count.toIntExact)))
             else None
           }
         )
@@ -180,8 +181,8 @@ object TestUIInterface {
 
   case class DynCard(
       name: String,
-      count: Int = 0,
-      max: Int = 0,
+      count: BigDecimal = 0,
+      max: BigDecimal = 0,
       costRows: js.UndefOr[Vector[CostRow]] = js.undefined,
       productionRows: js.UndefOr[Vector[ProductionRow]] = js.undefined,
   )
@@ -192,5 +193,27 @@ object TestUIInterface {
     val pageName: IO[Option[Throwable], String]    = ZIO.fromOption(name.toOption)
     val cards: IO[Option[Throwable], Vector[Card]] = UIO.succeed(prefixCards ++ dynStdCards)
   }
+
+  def testPNV(t: String, n: BigDecimal) = assertTrue(parseNumberValue(t) == Some(n))
+
+  final val spec = suite("UIInterface")(
+    suite("int parsing")(
+      test("works with int") {
+        testPNV("3", 3)
+      },
+      test("works with negative") {
+        testPNV("-42", -42)
+      },
+      test("works with decimal") {
+        testPNV("3.01k", 3010)
+      },
+      test("works with negative decimal") {
+        testPNV("-3.01k", -3010)
+      },
+      test("works without decimal") {
+        testPNV("-4T", BigDecimal(-4) * BigDecimal(1000).pow(4))
+      },
+    )
+  )
 
 }

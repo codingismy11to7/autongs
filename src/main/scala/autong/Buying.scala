@@ -12,7 +12,7 @@ object Buying {
       case None => ZIO.unit
 
       case Some(btn) =>
-        def loop(max: Option[Int]): Task[Unit] =
+        def loop(max: Option[BigDecimal]): Task[Unit] =
           (btn.click *> ZIO.yieldNow *> (currMax >>= loop).when(max.isDefined))
             .when(max.forall(_ > numToLeaveUnbuilt))
 
@@ -77,7 +77,7 @@ object Buying {
             curr <- c.count
             max  <- c.maxCanBuild
             _    <- furtherFilter(c)
-          } yield BulkBuyInfo(n, bb, curr, max)
+          } yield BulkBuyInfo(n, bb, curr.toInt, max.toInt)
         }
 
         for {
