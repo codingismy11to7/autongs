@@ -234,7 +234,17 @@ object UIInterface {
       val emcButton: IO[Option[Throwable], Button] =
         queryBtn("div:nth-child(3) > button.me-3", div).map(LiveButton)
 
-      val timeRemaining: IO[Option[Throwable], String] = queryTextContent("div:last-child > small > span")(div)
+      private val specialText = queryTextContent("div:last-child > small")(div)
+
+      val timeRemaining: IO[Option[Throwable], String] =
+        queryTextContent("div:last-child > small > span")(div).optional.flatMap {
+          case s @ Some(_) => ZIO.succeed(s)
+          case None =>
+            specialText.optional.map {
+              case Some(s) if s == "> 48h" => Some("48:00:00")
+              case _                       => None
+            }
+        }.some
     }
 
     final private case class LiveProductionRow(div: html.Div) extends ProductionRow {
