@@ -11,6 +11,8 @@ import zio.ZIO
 import scala.scalajs.js
 
 object BuyMachinesDialog {
+  final private val LeaveUnbuiltDefault = false
+
   case class Props(onCancel: RTask[Unit], onStart: (BuildMachinesOpts) => RTask[Unit])
 
   private case class Machine(name: String, hasMax: Boolean)
@@ -35,12 +37,12 @@ object BuyMachinesDialog {
   final val Component = ScalaFnComponent
     .withHooks[Props]
     .useState(Vector.empty[Machine])
-    .useState(true)
+    .useState(LeaveUnbuiltDefault)
     .useState(Set.empty[String])
     .useEffectOnMountBy((_, machinesState, _, limitTo) =>
       collectCurrentMachines.flatMap { machines =>
         machinesState.setState(machines) *> limitTo.setState(
-          createMachineList(leaveUnbuilt = true, machines).map(_.name).toSet
+          createMachineList(leaveUnbuilt = LeaveUnbuiltDefault, machines).map(_.name).toSet
         )
       }
     )
