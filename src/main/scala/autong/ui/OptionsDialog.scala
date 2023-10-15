@@ -8,7 +8,6 @@ import autong.ui.icons.{GearWideConnected, GitHub, SkipForward}
 import autong.ui.muifixes.FixedMuiButton
 import io.kinoplan.scalajs.react.bridge.JsWriter
 import io.kinoplan.scalajs.react.material.ui.core._
-import io.kinoplan.scalajs.react.material.ui.core.styles.Theme
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.component.ScalaFn.Unmounted
 import japgolly.scalajs.react.feature.ReactFragment
@@ -191,6 +190,19 @@ object OptionsDialog {
               )
             ),
             MuiTooltip[RTask](title =
+              "Try to upgrade storage when needed while on Nanoswarms/Comms/Spaceship/Antimatter/Military. " +
+                "While idling on these screens with Auto-EMC on, the storage requirements can grow too large, which " +
+                "will cause the EMC shortcut to not be displayed. In that case, upgrade storage for the affected resource " +
+                "if the upgrade is enabled. If it's not enabled, manual intervention (switching Nanoswarms to that resource) " +
+                "will be needed."
+            ).apply(
+              divSwitchCtrl(
+                "Emergency Storage Upgrades",
+                currOptions.value.upgradeStorageForEMC getOrElse savedOptions.upgradeStorageForEMC,
+                x => _.copy(upgradeStorageForEMC = x),
+              )
+            ),
+            MuiTooltip[RTask](title =
               "Automatically purchase items that don't cost other resources over time, when it gets an achievement"
             ).apply(
               divSwitchCtrl(
@@ -232,6 +244,17 @@ object OptionsDialog {
                 "Automatically Unlock/Boost Technologies",
                 autoTechsEnabled,
                 x => _.copy(autoTechsEnabled = x),
+              )
+            ),
+            MuiDivider()(),
+            MuiTooltip[RTask](title =
+              "Automatically purchase Nanoswarms when on the Nanoswarm page. " +
+                "Works well with Auto-EMC and Nanoswarms set to Energy"
+            ).apply(
+              divSwitchCtrl(
+                "Buy Nanoswarms",
+                currOptions.value.buyNanoswarm getOrElse savedOptions.buyNanoswarm,
+                x => _.copy(buyNanoswarm = x),
               )
             ),
             MuiDivider()(),

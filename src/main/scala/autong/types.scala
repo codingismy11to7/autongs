@@ -6,6 +6,7 @@ import zio.prelude.{Equal, EqualOps}
 import zio.{Dequeue, UManaged}
 
 import scala.scalajs.js
+import scala.scalajs.js.UndefOr
 
 object AutoNG {
   type Started = Boolean
@@ -59,6 +60,7 @@ trait Options extends js.Object {
   def emcOnlyWhenFull: js.UndefOr[Boolean]            = js.undefined
   def storageEnabled: js.UndefOr[Boolean]             = js.undefined
   def onlyUpgradeStorageWhenFull: js.UndefOr[Boolean] = js.undefined
+  def upgradeStorageForEMC: js.UndefOr[Boolean]       = js.undefined
   def autoScienceEnabled: js.UndefOr[Boolean]         = js.undefined
   def autoTechsEnabled: js.UndefOr[Boolean]           = js.undefined
   def autoSciTechInterval: js.UndefOr[Int]            = js.undefined
@@ -66,6 +68,7 @@ trait Options extends js.Object {
   def buyCommunications: js.UndefOr[Boolean]          = js.undefined
   def buyMilitary: js.UndefOr[Boolean]                = js.undefined
   def buySpaceship: js.UndefOr[Boolean]               = js.undefined
+  def buyNanoswarm: js.UndefOr[Boolean]               = js.undefined
   def buyFreeItems: js.UndefOr[Boolean]               = js.undefined
   def bulkBuyMachines: js.UndefOr[Boolean]            = js.undefined
   def bulkBuyOnlyWhenRich: js.UndefOr[Boolean]        = js.undefined
@@ -85,6 +88,7 @@ object Options {
     a.emcOnlyWhenFull === b.emcOnlyWhenFull &&
     a.storageEnabled === b.storageEnabled &&
     a.onlyUpgradeStorageWhenFull === b.onlyUpgradeStorageWhenFull &&
+    a.upgradeStorageForEMC === b.upgradeStorageForEMC &&
     a.autoScienceEnabled === b.autoScienceEnabled &&
     a.autoTechsEnabled === b.autoTechsEnabled &&
     a.autoSciTechInterval === b.autoSciTechInterval &&
@@ -92,6 +96,7 @@ object Options {
     a.buyCommunications === b.buyCommunications &&
     a.buyMilitary === b.buyMilitary &&
     a.buySpaceship === b.buySpaceship &&
+    a.buyNanoswarm == b.buyNanoswarm &&
     a.buyFreeItems === b.buyFreeItems &&
     a.bulkBuyMachines === b.bulkBuyMachines &&
     a.bulkBuyOnlyWhenRich === b.bulkBuyOnlyWhenRich
@@ -109,6 +114,7 @@ object Options {
       emcOnlyWhenFull0: js.UndefOr[Boolean] = js.undefined,
       storageEnabled0: js.UndefOr[Boolean] = js.undefined,
       onlyUpgradeStorageWhenFull0: js.UndefOr[Boolean] = js.undefined,
+      upgradeStorageForEMC0: js.UndefOr[Boolean] = js.undefined,
       autoScienceEnabled0: js.UndefOr[Boolean] = js.undefined,
       autoTechsEnabled0: js.UndefOr[Boolean] = js.undefined,
       autoSciTechInterval0: js.UndefOr[Int] = js.undefined,
@@ -116,6 +122,7 @@ object Options {
       buyCommunications0: js.UndefOr[Boolean] = js.undefined,
       buyMilitary0: js.UndefOr[Boolean] = js.undefined,
       buySpaceship0: js.UndefOr[Boolean] = js.undefined,
+      buyNanoswarm0: js.UndefOr[Boolean] = js.undefined,
       buyFreeItems0: js.UndefOr[Boolean] = js.undefined,
       bulkBuyMachines0: js.UndefOr[Boolean] = js.undefined,
       bulkBuyOnlyWhenRich0: js.UndefOr[Boolean] = js.undefined,
@@ -128,16 +135,18 @@ object Options {
     override val taskInterval: js.UndefOr[Int]                   = taskInterval0
     override val autoEmc: js.UndefOr[Boolean]                    = autoEmc0
     override val emcOnlyMeteorite: js.UndefOr[Boolean]           = emcOnlyMeteorite0
-    override val emcOnlyWhenFull: js.UndefOr[Started]            = emcOnlyWhenFull0
+    override val emcOnlyWhenFull: js.UndefOr[Boolean]            = emcOnlyWhenFull0
     override val storageEnabled: js.UndefOr[Boolean]             = storageEnabled0
     override val onlyUpgradeStorageWhenFull: js.UndefOr[Boolean] = onlyUpgradeStorageWhenFull0
+    override val upgradeStorageForEMC: js.UndefOr[Boolean]       = upgradeStorageForEMC0
     override val autoScienceEnabled: js.UndefOr[Boolean]         = autoScienceEnabled0
     override val autoTechsEnabled: js.UndefOr[Boolean]           = autoTechsEnabled0
     override val autoSciTechInterval: js.UndefOr[Int]            = autoSciTechInterval0
-    override val buyAntimatter: js.UndefOr[Started]              = buyAntimatter0
+    override val buyAntimatter: js.UndefOr[Boolean]              = buyAntimatter0
     override val buyCommunications: js.UndefOr[Boolean]          = buyCommunications0
     override val buyMilitary: js.UndefOr[Boolean]                = buyMilitary0
-    override val buySpaceship: js.UndefOr[Started]               = buySpaceship0
+    override val buySpaceship: js.UndefOr[Boolean]               = buySpaceship0
+    override val buyNanoswarm: js.UndefOr[Boolean]               = buyNanoswarm0
     override val buyFreeItems: js.UndefOr[Boolean]               = buyFreeItems0
     override val bulkBuyMachines: js.UndefOr[Boolean]            = bulkBuyMachines0
     override val bulkBuyOnlyWhenRich: js.UndefOr[Boolean]        = bulkBuyOnlyWhenRich0
@@ -157,6 +166,7 @@ object Options {
         emcOnlyWhenFull: js.UndefOr[Boolean] = o.emcOnlyWhenFull,
         storageEnabled: js.UndefOr[Boolean] = o.storageEnabled,
         onlyUpgradeStorageWhenFull: js.UndefOr[Boolean] = o.onlyUpgradeStorageWhenFull,
+        upgradeStorageForEMC: js.UndefOr[Boolean] = o.upgradeStorageForEMC,
         autoScienceEnabled: js.UndefOr[Boolean] = o.autoScienceEnabled,
         autoTechsEnabled: js.UndefOr[Boolean] = o.autoTechsEnabled,
         autoSciTechInterval: js.UndefOr[Int] = o.autoSciTechInterval,
@@ -164,6 +174,7 @@ object Options {
         buyCommunications: js.UndefOr[Boolean] = o.buyCommunications,
         buyMilitary: js.UndefOr[Boolean] = o.buyMilitary,
         buySpaceship: js.UndefOr[Boolean] = o.buySpaceship,
+        buyNanoswarm: js.UndefOr[Boolean] = o.buyNanoswarm,
         buyFreeItems: js.UndefOr[Boolean] = o.buyFreeItems,
         bulkBuyMachines: js.UndefOr[Boolean] = o.bulkBuyMachines,
         bulkBuyOnlyWhenRich: js.UndefOr[Boolean] = o.bulkBuyOnlyWhenRich,
@@ -179,6 +190,7 @@ object Options {
       emcOnlyWhenFull,
       storageEnabled,
       onlyUpgradeStorageWhenFull,
+      upgradeStorageForEMC,
       autoScienceEnabled,
       autoTechsEnabled,
       autoSciTechInterval,
@@ -186,6 +198,7 @@ object Options {
       buyCommunications,
       buyMilitary,
       buySpaceship,
+      buyNanoswarm,
       buyFreeItems,
       bulkBuyMachines,
       bulkBuyOnlyWhenRich,
@@ -206,6 +219,7 @@ object Options {
       emcOnlyWhenFull = true,
       storageEnabled = true,
       onlyUpgradeStorageWhenFull = true,
+      upgradeStorageForEMC = true,
       autoScienceEnabled = true,
       autoTechsEnabled = true,
       autoSciTechInterval = 60000,
@@ -213,6 +227,7 @@ object Options {
       buyCommunications = false,
       buyMilitary = false,
       buySpaceship = false,
+      buyNanoswarm = false,
       buyFreeItems = true,
       bulkBuyMachines = true,
       bulkBuyOnlyWhenRich = true,
@@ -232,6 +247,7 @@ object Options {
         o.emcOnlyWhenFull.getOrElse(default.emcOnlyWhenFull),
         o.storageEnabled.getOrElse(default.storageEnabled),
         o.onlyUpgradeStorageWhenFull.getOrElse(default.onlyUpgradeStorageWhenFull),
+        o.upgradeStorageForEMC.getOrElse(default.upgradeStorageForEMC),
         o.autoScienceEnabled.getOrElse(default.autoScienceEnabled),
         o.autoTechsEnabled.getOrElse(default.autoTechsEnabled),
         o.autoSciTechInterval.getOrElse(default.autoSciTechInterval),
@@ -239,6 +255,7 @@ object Options {
         o.buyCommunications.getOrElse(default.buyCommunications),
         o.buyMilitary.getOrElse(default.buyMilitary),
         o.buySpaceship.getOrElse(default.buySpaceship),
+        o.buyNanoswarm.getOrElse(default.buyNanoswarm),
         o.buyFreeItems.getOrElse(default.buyFreeItems),
         o.bulkBuyMachines.getOrElse(default.bulkBuyMachines),
         o.bulkBuyOnlyWhenRich.getOrElse(default.bulkBuyOnlyWhenRich),
@@ -264,6 +281,7 @@ case class RequiredOptions(
     emcOnlyWhenFull: Boolean,
     storageEnabled: Boolean,
     onlyUpgradeStorageWhenFull: Boolean,
+    upgradeStorageForEMC: Boolean,
     autoScienceEnabled: Boolean,
     autoTechsEnabled: Boolean,
     autoSciTechInterval: Int,
@@ -271,6 +289,7 @@ case class RequiredOptions(
     buyCommunications: Boolean,
     buyMilitary: Boolean,
     buySpaceship: Boolean,
+    buyNanoswarm: Boolean,
     buyFreeItems: Boolean,
     bulkBuyMachines: Boolean,
     bulkBuyOnlyWhenRich: Boolean,
@@ -288,6 +307,7 @@ case class RequiredOptions(
     n.emcOnlyWhenFull getOrElse emcOnlyWhenFull,
     n.storageEnabled getOrElse storageEnabled,
     n.onlyUpgradeStorageWhenFull getOrElse onlyUpgradeStorageWhenFull,
+    n.upgradeStorageForEMC getOrElse upgradeStorageForEMC,
     n.autoScienceEnabled getOrElse autoScienceEnabled,
     n.autoTechsEnabled getOrElse autoTechsEnabled,
     n.autoSciTechInterval getOrElse autoSciTechInterval,
@@ -295,6 +315,7 @@ case class RequiredOptions(
     n.buyCommunications getOrElse buyCommunications,
     n.buyMilitary getOrElse buyMilitary,
     n.buySpaceship getOrElse buySpaceship,
+    n.buyNanoswarm getOrElse buyNanoswarm,
     n.buyFreeItems getOrElse buyFreeItems,
     n.bulkBuyMachines getOrElse bulkBuyMachines,
     n.bulkBuyOnlyWhenRich getOrElse bulkBuyOnlyWhenRich,
@@ -312,6 +333,7 @@ case class RequiredOptions(
     emcOnlyWhenFull,
     storageEnabled,
     onlyUpgradeStorageWhenFull,
+    upgradeStorageForEMC,
     autoScienceEnabled,
     autoTechsEnabled,
     autoSciTechInterval,
@@ -319,6 +341,7 @@ case class RequiredOptions(
     buyCommunications,
     buyMilitary,
     buySpaceship,
+    buyNanoswarm,
     buyFreeItems,
     bulkBuyMachines,
     bulkBuyOnlyWhenRich,

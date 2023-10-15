@@ -76,10 +76,12 @@ object TestUIInterface extends DefaultRunnableSpec {
       _rowName: String,
       _emcButton: js.UndefOr[Button] = js.undefined,
       remainingTime: js.UndefOr[String] = js.undefined,
+      _isNotEnoughStorage: Boolean = false,
   ) extends CostRow {
     val rowName: IO[Option[Throwable], String]       = ZIO.fromOption(_rowName.toOption)
     val emcButton: IO[Option[Throwable], Button]     = ZIO.fromOption(_emcButton.toOption)
     val timeRemaining: IO[Option[Throwable], String] = ZIO.fromOption(remainingTime.toOption)
+    override val isNotEnoughStorage: Task[Boolean]   = ZIO.succeed(_isNotEnoughStorage)
   }
 
   case class TestProdRow(_rowName: String, _inputOrOutput: String) extends ProductionRow {

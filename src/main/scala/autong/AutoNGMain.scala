@@ -2,7 +2,7 @@ package autong
 
 import autong.AutoNG.Started
 import autong.Bootstrap.bootstrapUi
-import autong.Buying.{buildAllMachines, buildBulkMachines, buildFreeItems, OnBulkBuy}
+import autong.Buying._
 import autong.Dyson.buildDyson
 import autong.Nav.navToPage
 import autong.Notifications.sendNotification
@@ -11,7 +11,6 @@ import autong.Storage.{load, store}
 import autong.Technologies.navAndBoostUnlockAllTechs
 import autong.UIInterface._
 import japgolly.scalajs.react._
-import org.scalajs.dom
 import zio.ZIO.ifM
 import zio._
 import zio.clock.{instant, Clock}
@@ -70,23 +69,8 @@ object AutoNGMain extends zio.App {
     rows.flatMap(ZIO.foreach_(_)(r => clickEMCButtonIfWanted(emcOnlyWhenFull)(r).optional.asSomeError))
   }
 
-  private def upgradeStorage(onlyUpgradeWhenFull: Boolean) =
-    sideNavEntries.flatMap { es =>
-      val btnsToClick = ZIO.collect(es) { e =>
-        val isFull = e.navButton.flatMap(_.isFull)
-
-        val buttonAndName = for {
-          upg  <- e.upgradeButton
-          nav  <- e.navButton
-          name <- nav.name
-        } yield upg -> name
-
-        ifM(!ZIO.fromOption(Some(onlyUpgradeWhenFull)) || isFull)(buttonAndName, ZIO.fail(None))
-      }
-      btnsToClick.flatMap(ZIO.foreach_(_) { case (b, name) =>
-        (b.click *> sendNotification(s"Upgraded $name Storage")).unlessM(b.disabled)
-      })
-    }
+  private def upgradeAllStorage(onlyUpgradeWhwenFull: Boolean) =
+    sideNavEntries.flatMap(upgradeStorage(onlyUpgradeWhwenFull))
 
   private[autong] def doWork(opts: RequiredOptions, lastScienceTime: Long) = {
     val empty = ZIO.succeed(Option.empty[RetVal])
@@ -114,12 +98,14 @@ object AutoNGMain extends zio.App {
           r        <- runAutoSciTechIfNeeded(currPage, elapsed, currTime)
         } yield r
 
-    val doStorage = upgradeStorage(opts.onlyUpgradeStorageWhenFull).when(opts.storageEnabled)
+    val doStorage = upgradeAllStorage(opts.onlyUpgradeStorageWhenFull).when(opts.storageEnabled)
     val doEMC     = emcPage(opts.emcOnlyMeteorite, opts.emcOnlyWhenFull).optional.when(opts.autoEmc)
+
+    val doNeededStorageUpgrades = buyNeededStorageUpgrades.when(opts.upgradeStorageForEMC)
 
     def buildAllMachinesFor(pageName: String, when: Boolean) = (retVal: Option[RetVal]) =>
       ifM(ZIO.succeed(when) && currPageIs(pageName))(
-        buildAllMachines(BuildMachinesOpts(false)) *> runAutoScienceAndTech,
+        doNeededStorageUpgrades *> buildAllMachines(BuildMachinesOpts(false)) *> runAutoScienceAndTech,
         ZIO.succeed(retVal),
       )
 
@@ -135,10 +121,11 @@ object AutoNGMain extends zio.App {
     val doAntimatter = buildAllMachinesFor("Antimatter", opts.buyAntimatter)
     val doMilitary   = buildAllMachinesFor("Military", opts.buyMilitary)
     val doSpaceship  = buildAllMachinesFor("Spaceship", opts.buySpaceship)
+    val doNanoswarms = buildAllMachinesFor("Nanoswarm", opts.buyNanoswarm)
 
     val doComms =
       ifM(ZIO.succeed(opts.buyCommunications) && currPageIs("Communication"))(
-        currentPageCards.optional.flatMap {
+        doNeededStorageUpgrades *> currentPageCards.optional.flatMap {
           case None => ZIO.unit
 
           case Some(cards) =>
@@ -165,7 +152,8 @@ object AutoNGMain extends zio.App {
       ZIO succeed retVal,
     )
 
-    doStorage *> doEMC *> buyFree *> buyBulk *> doScience *> (doComms >>= doMilitary >>= doSpaceship >>= doAntimatter >>= doDyson)
+    doStorage *> doEMC *> buyFree *> buyBulk *> doScience *>
+      (doComms >>= doMilitary >>= doSpaceship >>= doAntimatter >>= doDyson >>= doNanoswarms)
   }
 
   private def emcPage(onlyMeteorite: Boolean, onlyWhenFull: Boolean) =

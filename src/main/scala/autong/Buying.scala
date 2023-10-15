@@ -1,6 +1,14 @@
 package autong
 
-import autong.UIInterface.{currentPageCardsWithBuyButtons, BulkBuyButton, Card, ProductionRow}
+import autong.Notifications.sendNotification
+import autong.UIInterface.{
+  currentPageCardsWithBuyButtons,
+  sideNavEntries,
+  BulkBuyButton,
+  Card,
+  ProductionRow,
+  SideNavEntry,
+}
 import zio._
 
 object Buying {
@@ -20,6 +28,51 @@ object Buying {
     }
 
   }
+
+  def upgradeStorage(onlyUpgradeWhenFull: Boolean)(toUpgrade: Seq[SideNavEntry]) = {
+    val btnsToClick = ZIO.collect(toUpgrade) { e =>
+      val isFull = e.navButton.flatMap(_.isFull)
+
+      val buttonAndName = for {
+        upg  <- e.upgradeButton
+        nav  <- e.navButton
+        name <- nav.name
+      } yield upg -> name
+
+      ZIO.ifM(!ZIO.fromOption(Some(onlyUpgradeWhenFull)) || isFull)(buttonAndName, ZIO.fail(None))
+    }
+    btnsToClick.flatMap(ZIO.foreach_(_) { case (b, name) =>
+      (b.click *> sendNotification(s"Upgraded $name Storage")).unlessM(b.disabled)
+    })
+  }
+
+  val buyNeededStorageUpgrades: RIO[Has[UIInterface] with Has[Notifications], Unit] =
+    currentPageCardsWithBuyButtons.optional.flatMap {
+      case None => ZIO.unit
+
+      case Some(cards) =>
+        def collectNotEnoughStorages(card: Card) = for {
+          crs <- card.costRows
+          names <- ZIO
+            .collect(crs) { costRow =>
+              ZIO.ifM(costRow.isNotEnoughStorage.asSomeError)(costRow.rowName, ZIO.fail(None))
+            }
+            .asSomeError
+        } yield names.toSet
+
+        ZIO.foreach(cards.toSet)(collectNotEnoughStorages).map(_.flatten).optional.flatMap {
+          case Some(wantedRowNames) if wantedRowNames.nonEmpty =>
+            for {
+              allSideNavs <- sideNavEntries
+              wantedSideNavs <- ZIO.filter(allSideNavs) { e =>
+                e.navButton.flatMap(_.name).optional.map(_.exists(wantedRowNames.contains))
+              }
+              _ <- upgradeStorage(onlyUpgradeWhenFull = false)(wantedSideNavs)
+            } yield {}
+
+          case _ => ZIO.unit
+        }
+    }
 
   def buildAllMachines(o: BuildMachinesOpts = BuildMachinesOpts(true)): RIO[Has[UIInterface], Unit] =
     currentPageCardsWithBuyButtons.optional.flatMap {

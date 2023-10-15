@@ -64,6 +64,7 @@ object UIInterface {
       .map(_ collect { case timeRe(hr, min, sec) => sec.toInt + (min.toInt * 60) + (hr.toInt * 60 * 60) })
       .some
 
+    def isNotEnoughStorage: Task[Boolean]
   }
 
   trait ProductionRow {
@@ -245,6 +246,12 @@ object UIInterface {
               case _                       => None
             }
         }.some
+
+      override val isNotEnoughStorage: Task[Boolean] = specialText.optional.map {
+        case Some(s) if s == "---" => true
+        case _                     => false
+      }
+
     }
 
     final private case class LiveProductionRow(div: html.Div) extends ProductionRow {
