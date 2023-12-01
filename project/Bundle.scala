@@ -12,13 +12,13 @@ object Bundle {
          |  "manifest_version": 3,
          |  "host_permissions": [
          |    "https://ngspacecompany.freddecgames.com/",
-         |    "https://micro500.github.io/NGSpaceCompany/"
+         |    "https://ngsc.codingismy11to7.us/"
          |  ],
          |  "content_scripts": [
          |    {
          |      "matches": [
          |        "https://ngspacecompany.freddecgames.com/",
-         |        "https://micro500.github.io/NGSpaceCompany/"
+         |        "https://ngsc.codingismy11to7.us/"
          |      ],
          |      "js": [
          |        "autongs.js"
