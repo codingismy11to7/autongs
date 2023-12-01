@@ -1,6 +1,6 @@
 name := "autongs"
 
-(ThisBuild / version) := "0.1.16"
+(ThisBuild / version) := "0.1.17"
 
 (ThisBuild / scalaVersion) := "2.13.6"
 
